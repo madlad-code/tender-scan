@@ -61,6 +61,30 @@ Run checks:
 ruff check . && pytest
 ```
 
+## Web view
+
+```bash
+tender-scan serve --port 8000
+```
+
+Serves a read-only, mobile-friendly page listing stored notices. No auth — meant for private networks only (localhost or a Tailscale tailnet), never public exposure.
+
+## Docker + Tailscale (access from your phone)
+
+The compose setup runs the web view behind a [Tailscale](https://tailscale.com/) sidecar: the app container shares the Tailscale container's network namespace, so it is reachable only from devices on your tailnet.
+
+```bash
+cp .env.example .env
+# 1. Generate an auth key: https://login.tailscale.com/admin/settings/keys
+# 2. Set TS_AUTHKEY=tskey-auth-... in .env
+docker compose up -d --build
+
+# Fetch data (from inside the container; database persists in ./data/)
+docker compose exec app tender-scan scan --cpv "72*" --days 30
+```
+
+Then open **http://tender-scan:8000** on your phone (Tailscale app installed and connected, MagicDNS enabled). No ports are published on the host or the internet.
+
 ## Configuration
 
 Via environment variables (see `.env.example`):

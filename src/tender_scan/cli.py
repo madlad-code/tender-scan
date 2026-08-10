@@ -65,5 +65,22 @@ def list_notices(
     typer.echo(f"\n{len(notices)} notices.")
 
 
+@app.command()
+def serve(
+    host: str = typer.Option("0.0.0.0", help="Bind address"),
+    port: int = typer.Option(8000, help="Port"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Serve stored notices as a web page (read-only, for private networks)."""
+    from tender_scan.web import serve as make_server
+
+    server = make_server(host, port, db)
+    typer.echo(f"Serving on http://{host}:{port} (Ctrl-C to stop)")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        server.shutdown()
+
+
 if __name__ == "__main__":
     app()

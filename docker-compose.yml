@@ -1,0 +1,36 @@
+# tender-scan behind a Tailscale sidecar.
+#
+# The app container shares the tailscale container's network namespace, so the
+# web UI is reachable from any device on your tailnet (e.g. your phone) at
+# http://tender-scan:8000 — and from nowhere else. Nothing is published on the
+# host or the public internet.
+#
+# Setup:
+#   1. Create an auth key at https://login.tailscale.com/admin/settings/keys
+#      (reusable off, ephemeral off, tags optional)
+#   2. Put it in .env as TS_AUTHKEY=tskey-auth-...
+#   3. docker compose up -d
+#   4. Fetch data: docker compose exec app tender-scan scan --cpv "72*" --days 30
+
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    hostname: tender-scan
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_STATE_DIR=/var/lib/tailscale
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+    restart: unless-stopped
+
+  app:
+    build: .
+    network_mode: service:tailscale
+    depends_on:
+      - tailscale
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+volumes:
+  tailscale-state:
