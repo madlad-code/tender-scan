@@ -1,0 +1,283 @@
+{
+  "notices": [
+    {
+      "publication-number": "449657-2026",
+      "classification-cpv": [
+        "48510000",
+        "48510000",
+        "48900000",
+        "72000000",
+        "79400000"
+      ],
+      "buyer-name": {
+        "swe": [
+          "Upphandlingscenter Falun Borlänge-regionen",
+          "Falu kommun",
+          "Avesta Vatten och Avfall AB",
+          "Räddningstjänsten Dala Mitt",
+          "Avesta kommun",
+          "Falu Energi och Vatten AB inkl. dotterbolagFalu Energi &amp;",
+          "Kopparstaden AB",
+          "Södra Dalarnas Räddningstjänstförbund (SDR)",
+          "Avesta Industristad AB",
+          "Gamla Byn AB"
+        ]
+      },
+      "publication-date": "2026-07-01+02:00",
+      "links": {
+        "html": {
+          "ENG": "https://ted.europa.eu/en/notice/-/detail/449657-2026"
+        },
+        "xml": {
+          "MUL": "https://ted.europa.eu/en/notice/449657-2026/xml"
+        }
+      },
+      "notice-title": {
+        "hun": "Svédország – Kommunikációs szoftvercsomag – Stöd för visselblåsarärenden",
+        "lav": "Zviedrija – Sakaru programmatūras pakotne – Stöd för visselblåsarärenden",
+        "swe": "Sverige – Programvara för kommunikation – Stöd för visselblåsarärenden",
+        "gle": "An tSualainn – Communication software package – Stöd för visselblåsarärenden",
+        "ell": "Σουηδία – Πακέτα λογισμικού επικοινωνίας – Stöd för visselblåsarärenden",
+        "spa": "Suecia – Paquetes de software de comunicación – Stöd för visselblåsarärenden",
+        "est": "Rootsi – Sidetarkvarapakett – Stöd för visselblåsarärenden",
+        "nld": "Zweden – Communicatiesoftware – Stöd för visselblåsarärenden",
+        "fin": "Ruotsi – Viestintäohjelmatuotteet – Stöd för visselblåsarärenden",
+        "pol": "Szwecja – Pakiety oprogramowania komunikacyjnego – Stöd för visselblåsarärenden",
+        "hrv": "Švedska – Komunikacijski programski paket – Stöd för visselblåsarärenden",
+        "ces": "Švédsko – Balík programů pro komunikaci – Stöd för visselblåsarärenden",
+        "dan": "Sverige – Programpakke til kommunikationsformål – Stöd för visselblåsarärenden",
+        "ron": "Suedia – Pachete software de comunicaţii – Stöd för visselblåsarärenden",
+        "por": "Suécia – Pacote de software para comunicações – Stöd för visselblåsarärenden",
+        "slk": "Švédsko – Softvérový balík na komunikáciu – Stöd för visselblåsarärenden",
+        "fra": "Suède – Logiciels de communications – Stöd för visselblåsarärenden",
+        "mlt": "L-Iżvezja – Pakkett ta' softwer għall-komunikazzjoni – Stöd för visselblåsarärenden",
+        "deu": "Schweden – Kommunikationssoftwarepaket – Stöd för visselblåsarärenden",
+        "lit": "Švedija – Komunikacijų programinės įrangos paketai – Stöd för visselblåsarärenden",
+        "ita": "Svezia – Pacchetti software di comunicazione – Stöd för visselblåsarärenden",
+        "bul": "Швeция – Софтуерни пакети за комуникация – Stöd för visselblåsarärenden",
+        "slv": "Švedska – Programski paket za komunikacijo – Stöd för visselblåsarärenden",
+        "eng": "Sweden – Communication software package – Stöd för visselblåsarärenden"
+      }
+    },
+    {
+      "deadline-receipt-tender-date-lot": [
+        "2026-08-27+02:00"
+      ],
+      "publication-number": "450106-2026",
+      "classification-cpv": [
+        "72222300",
+        "48517000",
+        "72000000",
+        "72222300",
+        "48517000",
+        "72000000"
+      ],
+      "estimated-value-lot": [
+        "18000000"
+      ],
+      "buyer-name": {
+        "swe": [
+          "Stadsledningskontoret"
+        ]
+      },
+      "estimated-value-cur-lot": [
+        "SEK"
+      ],
+      "publication-date": "2026-07-01+02:00",
+      "links": {
+        "html": {
+          "ENG": "https://ted.europa.eu/en/notice/-/detail/450106-2026"
+        },
+        "xml": {
+          "MUL": "https://ted.europa.eu/en/notice/450106-2026/xml"
+        }
+      },
+      "notice-title": {
+        "hun": "Svédország – Információs technológiával kapcsolatos szolgáltatások – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "lav": "Zviedrija – Informācijas tehnoloģijas pakalpojumi – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "swe": "Sverige – IT-tjänster – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "gle": "An tSualainn – Information technology services – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "ell": "Σουηδία – Υπηρεσίες τεχνολογίας των πληροφοριών – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "spa": "Suecia – Servicios de tecnología de la información – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "est": "Rootsi – Infotehnoloogia teenused – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "nld": "Zweden – Diensten in verband met informatietechnologie – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "fin": "Ruotsi – Tietotekniikkapalvelut – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "pol": "Szwecja – Usługi w zakresie technologii informacji – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "hrv": "Švedska – Usluge informacijske tehnologije – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "ces": "Švédsko – Služby informačních technologií – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "dan": "Sverige – Tjenesteydelser i forbindelse med informationsteknologi – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "ron": "Suedia – Servicii de tehnologie a informaţiilor – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "por": "Suécia – Serviços relacionados com as tecnologias da informação – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "slk": "Švédsko – Služby informačných technológií – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "fra": "Suède – Services de technologies de l'information – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "mlt": "L-Iżvezja – Servizzi teknoloġiċi ta' l-informatika – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "deu": "Schweden – Informationstechnologiedienste – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "lit": "Švedija – Informacijos technologijos paslaugos – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "ita": "Svezia – Servizi di tecnologia dell'informazione – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "bul": "Швeция – Услуги, свързани с информационни технологии – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "slv": "Švedska – Storitve informacijske tehnologije – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA",
+        "eng": "Sweden – Information technology services – Digitalt systemstöd till utrednings- och uppföljningsinstrumenten ASI, ADAD/UngDOK och FREDA"
+      }
+    },
+    {
+      "publication-number": "450199-2026",
+      "classification-cpv": [
+        "72000000",
+        "48000000",
+        "72220000",
+        "72230000",
+        "72000000",
+        "48000000",
+        "72220000",
+        "72230000"
+      ],
+      "buyer-name": {
+        "swe": [
+          "Region Örebro Län"
+        ]
+      },
+      "publication-date": "2026-07-01+02:00",
+      "links": {
+        "html": {
+          "ENG": "https://ted.europa.eu/en/notice/-/detail/450199-2026"
+        },
+        "xml": {
+          "MUL": "https://ted.europa.eu/en/notice/450199-2026/xml"
+        }
+      },
+      "notice-title": {
+        "hun": "Svédország – IT-szolgáltatások: tanácsadás, szoftverfejlesztés, internet és támogatás – RFI - Lednings- och förvaltningssystem",
+        "lav": "Zviedrija – IT pakalpojumi konsultēšana, programmatūras izstrāde, internets un atbalsts – RFI - Lednings- och förvaltningssystem",
+        "swe": "Sverige – IT-tjänster: konsultverksamhet, programvaruutveckling, Internet och stöd – RFI - Lednings- och förvaltningssystem",
+        "gle": "An tSualainn – IT services: consulting, software development, Internet and support – RFI - Lednings- och förvaltningssystem",
+        "ell": "Σουηδία – Υπηρεσίες τεχνολογίας των πληροφοριών: παροχή συμβουλών, ανάπτυξη λογισμικού, Διαδίκτυο και υποστήριξη – RFI - Lednings- och förvaltningssystem",
+        "spa": "Suecia – Servicios TI: consultoría, desarrollo de software, Internet y apoyo – RFI - Lednings- och förvaltningssystem",
+        "est": "Rootsi – IT-teenused: nõuande-, tarkvaraarendus-, Interneti- ja tugiteenused – RFI - Lednings- och förvaltningssystem",
+        "nld": "Zweden – IT-diensten: adviezen, softwareontwikkeling, internet en ondersteuning – RFI - Lednings- och förvaltningssystem",
+        "fin": "Ruotsi – Tietotekniset palvelut: neuvonta, ohjelmistojen kehittäminen, Internet ja tuki – RFI - Lednings- och förvaltningssystem",
+        "pol": "Szwecja – Usługi informatyczne: konsultacyjne, opracowywania oprogramowania, internetowe i wsparcia – RFI - Lednings- och förvaltningssystem",
+        "hrv": "Švedska – Usluge informacijske tehnologije: savjetovanje, razvoj programske podrške, internet i podrška – RFI - Lednings- och förvaltningssystem",
+        "ces": "Švédsko – Informační technologie: poradenství, vývoj programového vybavení, internet a podpora – RFI - Lednings- och förvaltningssystem",
+        "dan": "Sverige – It-tjenester: rådgivning, programmeludvikling, internet og support – RFI - Lednings- och förvaltningssystem",
+        "ron": "Suedia – Servicii IT: consultanţă, dezvoltare de software, internet şi asistenţă – RFI - Lednings- och förvaltningssystem",
+        "por": "Suécia – Serviços de TI: consultoria, desenvolvimento de software, Internet e apoio – RFI - Lednings- och förvaltningssystem",
+        "slk": "Švédsko – Služby informačných technológií: konzultácie, vývoj softvéru, internet a podpora – RFI - Lednings- och förvaltningssystem",
+        "fra": "Suède – Services de technologies de l'information, conseil, développement de logiciels, internet et appui – RFI - Lednings- och förvaltningssystem",
+        "mlt": "L-Iżvezja – Servizzi ta' IT: konsulenza, żvilupp ta' softwer, Internet u appoġġ – RFI - Lednings- och förvaltningssystem",
+        "deu": "Schweden – IT-Dienste: Beratung, Software-Entwicklung, Internet und Hilfestellung – RFI - Lednings- och förvaltningssystem",
+        "lit": "Švedija – IT paslaugos: konsultavimas, programinės įrangos kūrimas, internetas ir aptarnavimo paslaugos – RFI - Lednings- och förvaltningssystem",
+        "ita": "Svezia – Servizi informatici: consulenza, sviluppo di software, Internet e supporto – RFI - Lednings- och förvaltningssystem",
+        "bul": "Швeция – ИТ услуги: консултации, разработване на софтуер, Интернет и поддръжка – RFI - Lednings- och förvaltningssystem",
+        "slv": "Švedska – Storitve informacijske tehnologije: svetovanje, razvoj programske opreme, internet in podpora – RFI - Lednings- och förvaltningssystem",
+        "eng": "Sweden – IT services: consulting, software development, Internet and support – RFI - Lednings- och förvaltningssystem"
+      }
+    },
+    {
+      "publication-number": "450382-2026",
+      "classification-cpv": [
+        "48160000",
+        "48160000",
+        "48161000",
+        "72212160",
+        "79995000",
+        "92511000"
+      ],
+      "buyer-name": {
+        "swe": [
+          "Svedala kommun"
+        ]
+      },
+      "publication-date": "2026-07-01+02:00",
+      "links": {
+        "html": {
+          "ENG": "https://ted.europa.eu/en/notice/-/detail/450382-2026"
+        },
+        "xml": {
+          "MUL": "https://ted.europa.eu/en/notice/450382-2026/xml"
+        }
+      },
+      "notice-title": {
+        "hun": "Svédország – Könyvtári szoftvercsomag – Bibliotekssystem",
+        "lav": "Zviedrija – Bibliotēkas programmatūras pakotne – Bibliotekssystem",
+        "swe": "Sverige – Programvara för bibliotek – Bibliotekssystem",
+        "gle": "An tSualainn – Library software package – Bibliotekssystem",
+        "ell": "Σουηδία – Πακέτα λογισμικού βιβλιοθηκών – Bibliotekssystem",
+        "spa": "Suecia – Paquetes de software de bibliotecas – Bibliotekssystem",
+        "est": "Rootsi – Raamatukogude tarkvarapakett – Bibliotekssystem",
+        "nld": "Zweden – Software voor bibliotheek – Bibliotekssystem",
+        "fin": "Ruotsi – Kirjasto-ohjelmatuotteet – Bibliotekssystem",
+        "pol": "Szwecja – Pakiety oprogramowania bibliotecznego – Bibliotekssystem",
+        "hrv": "Švedska – Programski paket za knjižnicu – Bibliotekssystem",
+        "ces": "Švédsko – Balíky programů pro knihovny – Bibliotekssystem",
+        "dan": "Sverige – Programpakke til biblioteksstyring – Bibliotekssystem",
+        "ron": "Suedia – Pachete software pentru biblioteci – Bibliotekssystem",
+        "por": "Suécia – Pacote de software para bibliotecas – Bibliotekssystem",
+        "slk": "Švédsko – Knižničný softvérový balík – Bibliotekssystem",
+        "fra": "Suède – Logiciels de bibliothèque – Bibliotekssystem",
+        "mlt": "L-Iżvezja – Pakkett ta' softwer għal-libreriji – Bibliotekssystem",
+        "deu": "Schweden – Bibliothekensoftwarepaket – Bibliotekssystem",
+        "lit": "Švedija – Bibliotekų programinės įrangos paketai – Bibliotekssystem",
+        "ita": "Svezia – Pacchetti software per biblioteche – Bibliotekssystem",
+        "bul": "Швeция – Софтуерни пакети за библиотеки – Bibliotekssystem",
+        "slv": "Švedska – Programski paket za knjižnice – Bibliotekssystem",
+        "eng": "Sweden – Library software package – Bibliotekssystem"
+      }
+    },
+    {
+      "publication-number": "450523-2026",
+      "classification-cpv": [
+        "72000000",
+        "72000000"
+      ],
+      "estimated-value-lot": [
+        "2000000"
+      ],
+      "buyer-name": {
+        "swe": [
+          "Region Stockholm - Serviceförvaltningen"
+        ]
+      },
+      "estimated-value-cur-lot": [
+        "SEK"
+      ],
+      "publication-date": "2026-07-01+02:00",
+      "links": {
+        "html": {
+          "ENG": "https://ted.europa.eu/en/notice/-/detail/450523-2026"
+        },
+        "xml": {
+          "MUL": "https://ted.europa.eu/en/notice/450523-2026/xml"
+        }
+      },
+      "notice-title": {
+        "hun": "Svédország – IT-szolgáltatások: tanácsadás, szoftverfejlesztés, internet és támogatás – Specifik upphandling Konsult för införande av Windows 11",
+        "lav": "Zviedrija – IT pakalpojumi konsultēšana, programmatūras izstrāde, internets un atbalsts – Specifik upphandling Konsult för införande av Windows 11",
+        "swe": "Sverige – IT-tjänster: konsultverksamhet, programvaruutveckling, Internet och stöd – Specifik upphandling Konsult för införande av Windows 11",
+        "gle": "An tSualainn – IT services: consulting, software development, Internet and support – Specifik upphandling Konsult för införande av Windows 11",
+        "ell": "Σουηδία – Υπηρεσίες τεχνολογίας των πληροφοριών: παροχή συμβουλών, ανάπτυξη λογισμικού, Διαδίκτυο και υποστήριξη – Specifik upphandling Konsult för införande av Windows 11",
+        "spa": "Suecia – Servicios TI: consultoría, desarrollo de software, Internet y apoyo – Specifik upphandling Konsult för införande av Windows 11",
+        "est": "Rootsi – IT-teenused: nõuande-, tarkvaraarendus-, Interneti- ja tugiteenused – Specifik upphandling Konsult för införande av Windows 11",
+        "nld": "Zweden – IT-diensten: adviezen, softwareontwikkeling, internet en ondersteuning – Specifik upphandling Konsult för införande av Windows 11",
+        "fin": "Ruotsi – Tietotekniset palvelut: neuvonta, ohjelmistojen kehittäminen, Internet ja tuki – Specifik upphandling Konsult för införande av Windows 11",
+        "pol": "Szwecja – Usługi informatyczne: konsultacyjne, opracowywania oprogramowania, internetowe i wsparcia – Specifik upphandling Konsult för införande av Windows 11",
+        "hrv": "Švedska – Usluge informacijske tehnologije: savjetovanje, razvoj programske podrške, internet i podrška – Specifik upphandling Konsult för införande av Windows 11",
+        "ces": "Švédsko – Informační technologie: poradenství, vývoj programového vybavení, internet a podpora – Specifik upphandling Konsult för införande av Windows 11",
+        "dan": "Sverige – It-tjenester: rådgivning, programmeludvikling, internet og support – Specifik upphandling Konsult för införande av Windows 11",
+        "ron": "Suedia – Servicii IT: consultanţă, dezvoltare de software, internet şi asistenţă – Specifik upphandling Konsult för införande av Windows 11",
+        "por": "Suécia – Serviços de TI: consultoria, desenvolvimento de software, Internet e apoio – Specifik upphandling Konsult för införande av Windows 11",
+        "slk": "Švédsko – Služby informačných technológií: konzultácie, vývoj softvéru, internet a podpora – Specifik upphandling Konsult för införande av Windows 11",
+        "fra": "Suède – Services de technologies de l'information, conseil, développement de logiciels, internet et appui – Specifik upphandling Konsult för införande av Windows 11",
+        "mlt": "L-Iżvezja – Servizzi ta' IT: konsulenza, żvilupp ta' softwer, Internet u appoġġ – Specifik upphandling Konsult för införande av Windows 11",
+        "deu": "Schweden – IT-Dienste: Beratung, Software-Entwicklung, Internet und Hilfestellung – Specifik upphandling Konsult för införande av Windows 11",
+        "lit": "Švedija – IT paslaugos: konsultavimas, programinės įrangos kūrimas, internetas ir aptarnavimo paslaugos – Specifik upphandling Konsult för införande av Windows 11",
+        "ita": "Svezia – Servizi informatici: consulenza, sviluppo di software, Internet e supporto – Specifik upphandling Konsult för införande av Windows 11",
+        "bul": "Швeция – ИТ услуги: консултации, разработване на софтуер, Интернет и поддръжка – Specifik upphandling Konsult för införande av Windows 11",
+        "slv": "Švedska – Storitve informacijske tehnologije: svetovanje, razvoj programske opreme, internet in podpora – Specifik upphandling Konsult för införande av Windows 11",
+        "eng": "Sweden – IT services: consulting, software development, Internet and support – Specifik upphandling Konsult för införande av Windows 11"
+      }
+    }
+  ],
+  "totalNoticeCount": 115,
+  "iterationNextToken": null,
+  "timedOut": false
+}
