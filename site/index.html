@@ -1,0 +1,355 @@
+<title>tender-scan — Vet vad myndigheten faktiskt köper</title>
+<style>
+  :root {
+    --bg: #F7F6F2;
+    --surface: #FFFFFF;
+    --ink: #1C2621;
+    --muted: #5A6660;
+    --accent: #1F5C43;
+    --accent-contrast: #FFFFFF;
+    --bar-ghost: #E6E4DC;
+    --line: #E3E1D9;
+    --card-shadow: 0 1px 2px rgba(28, 38, 33, 0.06), 0 4px 16px rgba(28, 38, 33, 0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131917;
+      --surface: #1B231F;
+      --ink: #E8EBE6;
+      --muted: #9AA69F;
+      --accent: #58B98D;
+      --accent-contrast: #10201A;
+      --bar-ghost: #2A342E;
+      --line: #28312C;
+      --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131917;
+    --surface: #1B231F;
+    --ink: #E8EBE6;
+    --muted: #9AA69F;
+    --accent: #58B98D;
+    --accent-contrast: #10201A;
+    --bar-ghost: #2A342E;
+    --line: #28312C;
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .serif { font-family: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif; }
+  .mono {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+
+  header.site {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 0; gap: 16px;
+  }
+  .wordmark {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-weight: 600; font-size: 15px; letter-spacing: 0.02em;
+    color: var(--ink); text-decoration: none;
+  }
+  .wordmark span { color: var(--accent); }
+  nav.top { display: flex; gap: 20px; flex-wrap: wrap; }
+  nav.top a { color: var(--muted); text-decoration: none; font-size: 14px; }
+  nav.top a:hover, nav.top a:focus-visible { color: var(--accent); }
+
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 14px;
+  }
+  .hero { padding: 56px 0 32px; }
+  h1 {
+    font-family: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+    font-size: clamp(30px, 5.5vw, 46px);
+    line-height: 1.15; margin: 0 0 18px; font-weight: 700;
+    text-wrap: balance; max-width: 21ch;
+  }
+  .lede { font-size: 19px; color: var(--muted); max-width: 58ch; margin: 0 0 28px; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .cta-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    display: inline-block; text-decoration: none; border-radius: 6px;
+    padding: 12px 22px; font-size: 16px; font-weight: 600;
+    border: 1.5px solid var(--accent);
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-contrast); }
+  .btn.primary:hover, .btn.primary:focus-visible { filter: brightness(1.08); }
+  .btn.ghost { color: var(--accent); background: transparent; }
+  .btn.ghost:hover, .btn.ghost:focus-visible { background: var(--bar-ghost); }
+  .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .ledger {
+    margin: 44px 0 0; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; padding: 24px 24px 20px; box-shadow: var(--card-shadow);
+  }
+  .ledger-head {
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    font-size: 13px; color: var(--muted); margin-bottom: 18px;
+  }
+  .ledger-row { margin-bottom: 16px; }
+  .ledger-label {
+    display: flex; justify-content: space-between; gap: 12px;
+    font-size: 14px; margin-bottom: 6px;
+  }
+  .ledger-label .amount { font-weight: 600; }
+  .bar-track { background: var(--bar-ghost); border-radius: 4px; height: 14px; overflow: hidden; }
+  .bar-fill { background: var(--accent); height: 100%; border-radius: 4px; }
+  .ledger-verdict {
+    border-top: 1px dashed var(--line); margin-top: 18px; padding-top: 14px;
+    font-size: 15px;
+  }
+  .ledger-verdict strong { color: var(--accent); }
+  .fineprint { font-size: 12px; color: var(--muted); margin-top: 10px; }
+
+  section { padding: 44px 0 8px; }
+  h2 {
+    font-family: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+    font-size: clamp(24px, 4vw, 32px); line-height: 1.2; margin: 0 0 10px;
+    text-wrap: balance;
+  }
+  .section-intro { color: var(--muted); max-width: 60ch; margin: 0 0 28px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 20px; box-shadow: var(--card-shadow);
+  }
+  .card h3 { margin: 0 0 8px; font-size: 17px; }
+  .card p { margin: 0; font-size: 15px; color: var(--muted); }
+  .step-num {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px; color: var(--accent); letter-spacing: 0.1em; display: block;
+    margin-bottom: 8px;
+  }
+
+  .punchline {
+    margin: 28px 0 0; padding: 18px 22px; border-left: 3px solid var(--accent);
+    background: var(--surface); border-radius: 0 10px 10px 0; font-size: 17px;
+    max-width: 62ch;
+  }
+
+  .offer { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .offer .card { display: flex; flex-direction: column; gap: 12px; }
+  .price {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 22px; font-weight: 600; color: var(--accent);
+  }
+  .price small { font-size: 13px; color: var(--muted); font-weight: 400; }
+  ul.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 15px; }
+  ul.checks li { padding-left: 24px; position: relative; }
+  ul.checks li::before {
+    content: "✓"; position: absolute; left: 0; color: var(--accent); font-weight: 700;
+  }
+  .tag {
+    align-self: flex-start; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 99px;
+    padding: 3px 10px;
+  }
+
+  .promise { margin-top: 20px; font-size: 15px; color: var(--muted); }
+
+  details {
+    border-bottom: 1px solid var(--line); padding: 14px 0;
+  }
+  details summary {
+    cursor: pointer; font-weight: 600; font-size: 16px; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  details summary::after { content: "+"; color: var(--accent); font-size: 20px; }
+  details[open] summary::after { content: "–"; }
+  details p { color: var(--muted); font-size: 15px; margin: 10px 0 0; max-width: 62ch; }
+
+  footer.site {
+    margin-top: 56px; padding: 36px 0 48px; border-top: 1px solid var(--line);
+  }
+  footer .cta-block h2 { margin-bottom: 6px; }
+  footer .contact { margin: 18px 0 0; font-size: 15px; color: var(--muted); }
+  footer a { color: var(--accent); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .bar-fill { transition: width 0.8s ease; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="site">
+    <a class="wordmark" href="#">tender-scan<span>_</span></a>
+    <nav class="top">
+      <a href="#hur">Så funkar det</a>
+      <a href="#rapport">Rapporten</a>
+      <a href="#kop">Att köpa</a>
+      <a href="#fragor">Frågor</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <p class="eyebrow">För leverantörer till offentlig sektor</p>
+    <h1>Ramavtalet lovade 4 miljoner. Hur mycket köpte myndigheten egentligen?</h1>
+    <p class="lede">
+      Alla bevakar upphandlingsannonserna. Nästan ingen bevakar vad som händer efteråt.
+      tender-scan analyserar <strong>skillnaden mellan avtalens takvolymer och faktiska avrop</strong>
+      — så att du vet vilka affärer som är värda att jaga innan du skriver nästa anbud.
+    </p>
+    <div class="cta-row">
+      <a class="btn primary" href="mailto:oscarenghag@gmail.com?subject=Provrapport%20tender-scan">Beställ en provrapport</a>
+      <a class="btn ghost" href="#hur">Hur funkar offentlig upphandling?</a>
+    </div>
+
+    <div class="ledger mono">
+      <div class="ledger-head">
+        <span>RAMAVTAL · Batterier &amp; strömförsörjning</span>
+        <span>Avtalsperiod 2023–2027</span>
+      </div>
+      <div class="ledger-row">
+        <div class="ledger-label">
+          <span>Takvolym enligt avtal</span>
+          <span class="amount">4 000 000 kr</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width: 100%"></div></div>
+      </div>
+      <div class="ledger-row">
+        <div class="ledger-label">
+          <span>Faktiskt avropat, år 1–2</span>
+          <span class="amount">1 130 000 kr</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width: 28%"></div></div>
+      </div>
+      <p class="ledger-verdict serif">
+        <strong>72 % av avtalet är outnyttjat.</strong>
+        Antingen finns utrymme kvar att sälja på — eller så är takvolymen i nästa
+        upphandling kraftigt överskattad. Båda svaren är värda pengar för den som lägger anbud.
+      </p>
+      <p class="fineprint">Exempel med fiktiva siffror. Riktiga rapporter bygger på offentliga data för din myndighet och ditt avtalsområde.</p>
+    </div>
+  </section>
+
+  <section id="hur">
+    <p class="eyebrow">Offentlig upphandling på 60 sekunder</p>
+    <h2>Tre steg. Pengarna finns i det tredje.</h2>
+    <div class="cards">
+      <div class="card">
+        <span class="step-num">STEG 01</span>
+        <h3>Annons</h3>
+        <p>Myndigheten publicerar sitt behov — stora upphandlingar i EU:s databas TED, övriga i svenska annonsdatabaser som Mercell, e-Avrop och Kommers.</p>
+      </div>
+      <div class="card">
+        <span class="step-num">STEG 02</span>
+        <h3>Anbud &amp; tilldelning</h3>
+        <p>Företag lämnar anbud. Vinnaren får kontrakt eller ramavtal. Tilldelningsbeslutet är offentligt — inklusive vilka som förlorade och till vilka priser.</p>
+      </div>
+      <div class="card">
+        <span class="step-num">STEG 03</span>
+        <h3>Avrop</h3>
+        <p>Ett ramavtal är ett löfte om <em>möjliga</em> köp upp till en takvolym. De verkliga pengarna styrs av avropen — beställningarna under avtalstiden.</p>
+      </div>
+    </div>
+    <p class="punchline serif">
+      Bevakningstjänsterna slutar vid steg 1. tender-scan börjar vid steg 3:
+      vad myndigheten <em>faktiskt</em> köper, av vem, och hur långt ifrån takvolymen det hamnar.
+    </p>
+  </section>
+
+  <section id="rapport">
+    <p class="eyebrow">Det här får du</p>
+    <h2>En rapport före anbudet. En bevakning efter.</h2>
+    <div class="offer">
+      <div class="card">
+        <span class="tag">Engångsköp</span>
+        <h3>Avropsanalys — rapport</h3>
+        <p class="price">1 500–5 000 kr <small>/ rapport, fast pris i förväg</small></p>
+        <ul class="checks">
+          <li>Myndighetens historiska avropsvolymer i ditt avtalsområde</li>
+          <li>Tidigare vinnare och prisbilder från tilldelningsbeslut</li>
+          <li>Takvolym jämförd med verkligt utfall — och prognos framåt</li>
+          <li>Checklista över ska-krav från senaste upphandlingen</li>
+          <li>Cirka 4 sidor PDF, levererad inom 48 timmar</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="tag">Abonnemang</span>
+        <h3>Nischbevakning — löpande</h3>
+        <p class="price">från 500 kr <small>/ månad, ingen bindningstid</small></p>
+        <ul class="checks">
+          <li>Daglig bevakning av nya upphandlingar i din nisch</li>
+          <li>Mejl varje morgon när något matchar — inte en dag senare</li>
+          <li>Larm när relevanta ramavtal närmar sig avtalsslut</li>
+          <li>Kvartalsuppdatering av avropsläget hos dina myndigheter</li>
+        </ul>
+      </div>
+    </div>
+    <p class="promise">Byggd på öppna källor: EU:s upphandlingsdatabas TED, Upphandlingsmyndighetens statistikdatabas och handlingar begärda enligt offentlighetsprincipen. All grunddata är offentlig — analysen och tidsvinsten är det du betalar för.</p>
+  </section>
+
+  <section id="kop">
+    <p class="eyebrow">Att köpa</p>
+    <h2>Tre mejl. Inga konton, inga uppstartsavgifter.</h2>
+    <div class="cards">
+      <div class="card">
+        <span class="step-num">01 · IDAG</span>
+        <h3>Berätta vad du säljer</h3>
+        <p>Mejla eller ring. 15 minuter räcker: vilka myndigheter köper det du säljer, och vilket avtal vill du förstå?</p>
+      </div>
+      <div class="card">
+        <span class="step-num">02 · INOM 24 H</span>
+        <h3>Fast pris på mejl</h3>
+        <p>Du får en offert med exakt innehåll och pris. Svara ja — det är hela beställningen.</p>
+      </div>
+      <div class="card">
+        <span class="step-num">03 · INOM 48 H</span>
+        <h3>Rapport i inkorgen</h3>
+        <p>PDF levereras, faktura kommer efteråt med 30 dagars betalvillkor. Inte nöjd? Då river vi fakturan.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="fragor">
+    <p class="eyebrow">Vanliga frågor</p>
+    <h2>Innan du frågar</h2>
+    <details>
+      <summary>Är det här verkligen lagligt?</summary>
+      <p>Ja. Upphandlingsannonser, tilldelningsbeslut och avtalsuppföljning är offentliga uppgifter i Sverige. Rapporterna bygger uteslutande på öppna datakällor och handlingar som lämnas ut enligt offentlighetsprincipen.</p>
+    </details>
+    <details>
+      <summary>Jag har redan Opic/Mercell. Varför behöver jag detta?</summary>
+      <p>Bevakningstjänster larmar när en annons publiceras — steg 1. tender-scan analyserar vad som händer efter tilldelningen: verkliga avropsvolymer, prisbilder och hur mycket av takvolymen som utnyttjas. Det är beslutsunderlag inför anbudet, inte ännu ett larm.</p>
+    </details>
+    <details>
+      <summary>Vilka branscher jobbar ni med?</summary>
+      <p>Först ut: elektronik och teknisk materiel till svensk offentlig sektor — batterier, strömförsörjning, komponenter, instrument. Smalt med flit: den som kan ett avtalsområde på djupet slår den som skummar alla.</p>
+    </details>
+    <details>
+      <summary>Var kommer datan ifrån?</summary>
+      <p>EU:s officiella upphandlingsdatabas TED (via öppet API), Upphandlingsmyndighetens nationella statistikdatabas (öppna data) och vid behov handlingar begärda direkt från myndigheten. Motorn är öppen källkod på GitHub.</p>
+    </details>
+  </section>
+
+  <footer class="site">
+    <div class="cta-block">
+      <h2>Nästa anbud förtjänar bättre underlag.</h2>
+      <p class="section-intro">Första samtalet kostar ingenting. Beskriv vad du säljer och till vem — du får ett ärligt besked om vad datan kan visa.</p>
+      <div class="cta-row">
+        <a class="btn primary" href="mailto:oscarenghag@gmail.com?subject=Provrapport%20tender-scan">Mejla oscarenghag@gmail.com</a>
+        <a class="btn ghost" href="https://github.com/madlad-code/tender-scan">Koden på GitHub</a>
+      </div>
+      <p class="contact">tender-scan · Analys av offentliga avrop &amp; ramavtal · Sverige</p>
+    </div>
+  </footer>
+</div>
