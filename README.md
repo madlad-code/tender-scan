@@ -1,5 +1,7 @@
 # tender-scan
 
+*[Svensk version](README.sv.md)*
+
 Monitor Swedish public procurement notices from [TED (Tenders Electronic Daily)](https://ted.europa.eu/), the EU's official procurement journal.
 
 Built for small suppliers who bid on framework agreements and want to track what gets tendered — with a roadmap toward analyzing tendered ceiling volumes versus actual call-off volumes.
@@ -95,6 +97,12 @@ Via environment variables (see `.env.example`):
 | `TENDER_SCAN_DB` | `tender_scan.db` | SQLite database path |
 
 No secrets are needed — the TED search endpoints are public.
+
+## Docs & site
+
+- [docs/kallor.md](docs/kallor.md) — map of Swedish procurement data sources (what's free, what has an API)
+- [docs/saljprocess.md](docs/saljprocess.md) — sales funnel and customer process (Swedish)
+- [site/index.html](site/index.html) — customer-facing landing page (static, deployable to Netlify)
 
 ## Roadmap
 
