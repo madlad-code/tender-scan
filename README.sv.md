@@ -9,6 +9,8 @@ Byggd för små leverantörer som lägger anbud på ramavtal och vill veta mer �
 konkurrenterna: vad annonseras, vad tilldelas, och (på sikt) hur mycket av
 avtalens takvolymer som faktiskt avropas.
 
+**Kundsida:** [tender-scan-se.netlify.app](https://tender-scan-se.netlify.app)
+
 ## Varför
 
 Ett ramavtal annonseras med en takvolym — säg 4 MSEK. Men de verkliga pengarna

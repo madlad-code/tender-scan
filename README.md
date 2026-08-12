@@ -102,7 +102,9 @@ No secrets are needed — the TED search endpoints are public.
 
 - [docs/kallor.md](docs/kallor.md) — map of Swedish procurement data sources (what's free, what has an API)
 - [docs/saljprocess.md](docs/saljprocess.md) — sales funnel and customer process (Swedish)
-- [site/index.html](site/index.html) — customer-facing landing page (static, deployable to Netlify)
+- [site/index.html](site/index.html) — customer-facing landing page, live at [tender-scan-se.netlify.app](https://tender-scan-se.netlify.app)
+- [docs/validering-vecka1.md](docs/validering-vecka1.md) — week-1 validation: real framework agreement reconstructed from open data (Swedish)
+- [docs/begaran-mall.md](docs/begaran-mall.md) — public-records request template for call-off data (Swedish)
 
 ## Roadmap
 
