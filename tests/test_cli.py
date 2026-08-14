@@ -48,3 +48,66 @@ def test_list_empty_db(tmp_path):
 
     assert result.exit_code == 0
     assert "No notices stored" in result.output
+
+
+def test_rapport_from_local_xml(eforms_path):
+    result = runner.invoke(app, ["rapport", "214151-2026", "--xml", str(eforms_path)])
+
+    assert result.exit_code == 0
+    assert "Ramavtalsrapport: Standardbatterier" in result.output
+    assert "64 000 000 SEK" in result.output
+    assert "Ingen avropsdata angiven" in result.output
+
+
+def test_rapport_with_inline_calloffs(eforms_path):
+    result = runner.invoke(
+        app,
+        ["rapport", "214151-2026", "--xml", str(eforms_path),
+         "--avrop", "2025=12000000", "--avrop", "2026=6000000"],
+    )
+
+    assert result.exit_code == 0
+    assert "Avropat hittills: **18 000 000 SEK**" in result.output
+    assert "**28 %** av takvolymen" in result.output
+
+
+def test_rapport_with_calloff_csv(tmp_path, eforms_path):
+    csv_path = tmp_path / "avrop.csv"
+    csv_path.write_text("etikett,belopp\n2025,12000000\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["rapport", "214151-2026", "--xml", str(eforms_path), "--avrop-fil", str(csv_path)],
+    )
+
+    assert result.exit_code == 0
+    assert "| 2025 | 12 000 000 |" in result.output
+
+
+def test_rapport_writes_html_to_file(tmp_path, eforms_path):
+    out_path = tmp_path / "rapport.html"
+
+    result = runner.invoke(
+        app,
+        ["rapport", "214151-2026", "--xml", str(eforms_path), "--format", "html",
+         "--ut", str(out_path)],
+    )
+
+    assert result.exit_code == 0
+    assert str(out_path) in result.output
+    assert out_path.read_text(encoding="utf-8").startswith("<!doctype html>")
+
+
+def test_rapport_rejects_unknown_format(eforms_path):
+    result = runner.invoke(
+        app, ["rapport", "214151-2026", "--xml", str(eforms_path), "--format", "pdf"]
+    )
+
+    assert result.exit_code == 2
+    assert "Unknown format" in result.output
+
+
+def test_rapport_reports_missing_xml_file(tmp_path):
+    result = runner.invoke(app, ["rapport", "1-2026", "--xml", str(tmp_path / "nope.xml")])
+
+    assert result.exit_code != 0

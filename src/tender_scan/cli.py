@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import typer
 
+from tender_scan import report as report_module
 from tender_scan.models import Notice, format_estimated_value, parse_notice
 from tender_scan.storage import Storage
 from tender_scan.ted_client import TedClient
@@ -70,6 +73,50 @@ def list_notices(
     for notice in notices:
         typer.echo(_format_row(notice))
     typer.echo(f"\n{len(notices)} notices.")
+
+
+@app.command(name="rapport")
+def rapport(
+    notice_id: str = typer.Argument(
+        ..., help="TED publication number, e.g. 214151-2026", metavar="ID"
+    ),
+    avrop: list[str] = typer.Option(
+        [], "--avrop", help="Call-off as 'label=amount' or 'amount' (repeatable)"
+    ),
+    avrop_fil: Path | None = typer.Option(
+        None, "--avrop-fil", help="CSV file with call-offs: label,amount"
+    ),
+    xml: Path | None = typer.Option(
+        None, "--xml", help="Read a local eForms XML file instead of fetching from TED"
+    ),
+    format_: str = typer.Option("md", "--format", help="Output format: md or html"),
+    out: Path | None = typer.Option(None, "--ut", help="Write the report here instead of stdout"),
+) -> None:
+    """Build a framework agreement report (ceiling vs forecast vs call-offs) for one notice."""
+    if format_ not in ("md", "html"):
+        typer.echo(f"Unknown format {format_!r}; use 'md' or 'html'.", err=True)
+        raise typer.Exit(code=2)
+
+    try:
+        data = report_module.load_framework_data(notice_id, xml_path=xml)
+        calloffs = report_module.parse_calloff_args(list(avrop))
+        if avrop_fil is not None:
+            calloffs += report_module.read_calloff_csv(avrop_fil)
+    except report_module.ReportError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    except OSError as exc:
+        typer.echo(f"Could not read {avrop_fil}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    render = report_module.render_html if format_ == "html" else report_module.render_markdown
+    text = render(data, calloffs)
+
+    if out is not None:
+        out.write_text(text, encoding="utf-8")
+        typer.echo(f"Report written to {out}")
+    else:
+        typer.echo(text)
 
 
 @app.command()
