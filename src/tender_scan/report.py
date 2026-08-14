@@ -472,7 +472,7 @@ def render_html(data: FrameworkData, calloffs: list[CallOff] | None = None) -> s
             f"<table>\n<tr><th>Avrop</th><th>Belopp</th></tr>\n{rows}\n{total_row}\n</table>"
         )
     else:
-        calloff_html = f"<p class=\"meta\">{esc(strip_md(_NO_CALLOFF_NOTE))}</p>"
+        calloff_html = f'<p class="meta">{esc(strip_md(_NO_CALLOFF_NOTE))}</p>'
 
     return _HTML_PAGE.format(
         notice_id=esc(data.notice_id),

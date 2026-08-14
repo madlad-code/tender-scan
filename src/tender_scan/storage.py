@@ -122,8 +122,10 @@ class Storage:
                 notice.estimated_value,
                 notice.currency,
                 json.dumps(
-                    [{"estimated_value": lot.estimated_value, "currency": lot.currency}
-                     for lot in notice.lots]
+                    [
+                        {"estimated_value": lot.estimated_value, "currency": lot.currency}
+                        for lot in notice.lots
+                    ]
                 ),
                 notice.url,
                 json.dumps(notice.raw, ensure_ascii=False),
@@ -170,8 +172,9 @@ def _migrate_row(row: sqlite3.Row) -> Notice:
         return parse_notice(raw)
     except (KeyError, TypeError, ValueError):
         estimated_value, currency = _split_legacy_value(row["estimated_value"])
-        lots = parse_lots([estimated_value] if estimated_value is not None else [],
-                          [currency] if currency else [])
+        lots = parse_lots(
+            [estimated_value] if estimated_value is not None else [], [currency] if currency else []
+        )
         return Notice(
             id=row["id"],
             title=row["title"],

@@ -62,8 +62,16 @@ def test_rapport_from_local_xml(eforms_path):
 def test_rapport_with_inline_calloffs(eforms_path):
     result = runner.invoke(
         app,
-        ["rapport", "214151-2026", "--xml", str(eforms_path),
-         "--avrop", "2025=12000000", "--avrop", "2026=6000000"],
+        [
+            "rapport",
+            "214151-2026",
+            "--xml",
+            str(eforms_path),
+            "--avrop",
+            "2025=12000000",
+            "--avrop",
+            "2026=6000000",
+        ],
     )
 
     assert result.exit_code == 0
@@ -89,8 +97,16 @@ def test_rapport_writes_html_to_file(tmp_path, eforms_path):
 
     result = runner.invoke(
         app,
-        ["rapport", "214151-2026", "--xml", str(eforms_path), "--format", "html",
-         "--ut", str(out_path)],
+        [
+            "rapport",
+            "214151-2026",
+            "--xml",
+            str(eforms_path),
+            "--format",
+            "html",
+            "--ut",
+            str(out_path),
+        ],
     )
 
     assert result.exit_code == 0

@@ -13,9 +13,7 @@ _LANG_PRIORITY = ("eng", "swe")
 # TED deadline fields come as a date plus a zone designator but no time,
 # e.g. "2026-08-20Z" or "2026-09-03+02:00". Note that datetime.fromisoformat
 # would misread "+02:00" here as a *time of day*, so we parse explicitly.
-_DATE_WITH_ZONE = re.compile(
-    r"^(?P<date>\d{4}-\d{2}-\d{2})(?P<zone>Z|[+-]\d{2}:\d{2})?$"
-)
+_DATE_WITH_ZONE = re.compile(r"^(?P<date>\d{4}-\d{2}-\d{2})(?P<zone>Z|[+-]\d{2}:\d{2})?$")
 
 
 @dataclass(frozen=True, slots=True)
