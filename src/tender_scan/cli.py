@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from tender_scan.models import Notice, parse_notice
+from tender_scan.models import Notice, format_estimated_value, parse_notice
 from tender_scan.storage import Storage
 from tender_scan.ted_client import TedClient
 
@@ -31,12 +31,19 @@ def _truncate(value: str | None, width: int) -> str:
     return text[: width - 1] + "…" if len(text) > width else text
 
 
+def _format_deadline(deadline: str | None) -> str | None:
+    # "2026-08-26T22:00:00Z" -> "2026-08-26 22:00" (UTC)
+    return deadline.replace("T", " ")[:16] if deadline else None
+
+
 def _format_row(notice: Notice) -> str:
     return "  ".join(
         [
             notice.id.ljust(12),
-            _truncate(notice.deadline, 16).ljust(16),
-            _truncate(notice.estimated_value, 14).ljust(14),
+            _truncate(_format_deadline(notice.deadline), 16).ljust(16),
+            _truncate(format_estimated_value(notice.estimated_value, notice.currency), 14).ljust(
+                14
+            ),
             _truncate(notice.buyer, 30).ljust(30),
             _truncate(notice.title, 50),
         ]

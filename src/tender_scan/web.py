@@ -10,7 +10,7 @@ from __future__ import annotations
 import html
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from tender_scan.models import Notice
+from tender_scan.models import Notice, format_estimated_value
 from tender_scan.storage import Storage
 
 _PAGE = """<!doctype html>
@@ -56,8 +56,8 @@ def render_html(notices: list[Notice]) -> str:
             url=esc(n.url),
             title=esc(n.title),
             buyer=esc(n.buyer),
-            deadline=esc(n.deadline),
-            value=esc(n.estimated_value),
+            deadline=esc(n.deadline.replace("T", " ")[:16] + " UTC" if n.deadline else None),
+            value=esc(format_estimated_value(n.estimated_value, n.currency)),
             cpv=esc(n.cpv),
             id=esc(n.id),
         )
