@@ -57,3 +57,30 @@ def eforms_431354() -> bytes:
 def eforms_470310() -> bytes:
     """Ranked framework: RankCode 1, one tender with PayableAmount 0 (value undisclosed)."""
     return (FIXTURES / "eforms_470310-2026.xml").read_bytes()
+
+
+PAYMENT_FIXTURES = FIXTURES / "payments"
+
+
+@pytest.fixture
+def vgr_sample() -> bytes:
+    """Recorded VGR monthly CSV: 4 rows, UTF-8, `;`, and a bare `\\r` terminator."""
+    return (PAYMENT_FIXTURES / "vgr_sample.csv").read_bytes()
+
+
+@pytest.fixture
+def goteborg_sample() -> bytes:
+    """Recorded Göteborg monthly CSV: 4 rows, UTF-16 LE with BOM, `,` decimals."""
+    return (PAYMENT_FIXTURES / "goteborg_sample.csv").read_bytes()
+
+
+@pytest.fixture
+def vasteras_sample() -> bytes:
+    """Recorded Västerås rowstore JSON: a UTF-8 BOM inside the first key."""
+    return (PAYMENT_FIXTURES / "vasteras_sample.json").read_bytes()
+
+
+@pytest.fixture
+def vgr_catalogue() -> bytes:
+    """Recorded EntryScape catalogue search for the VGR supplier ledger."""
+    return (PAYMENT_FIXTURES / "vgr_catalogue.json").read_bytes()

@@ -1,0 +1,323 @@
+{
+ "resource": {
+  "children": [
+   {
+    "metadata": {
+     "https://vgregion.entryscape.net/store/7/resource/183": {
+      "http://purl.org/dc/terms/license": [
+       {
+        "type": "uri",
+        "value": "http://creativecommons.org/publicdomain/zero/1.0/"
+       }
+      ],
+      "http://www.w3.org/ns/dcat#downloadURL": [
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/271"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/272"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/273"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/274"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/275"
+       }
+      ],
+      "http://purl.org/dc/terms/format": [
+       {
+        "type": "literal",
+        "value": "text/csv"
+       }
+      ],
+      "http://data.europa.eu/r5r/availability": [
+       {
+        "type": "uri",
+        "value": "http://data.europa.eu/r5r/availability/stable"
+       }
+      ],
+      "http://purl.org/dc/terms/modified": [
+       {
+        "datatype": "http://www.w3.org/2001/XMLSchema#date",
+        "type": "literal",
+        "value": "2026-06-26T11:45:23.469Z"
+       }
+      ],
+      "http://www.w3.org/ns/dcat#accessURL": [
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/271"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/272"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/273"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/274"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/275"
+       }
+      ],
+      "http://purl.org/dc/terms/title": [
+       {
+        "type": "literal",
+        "lang": "sv",
+        "value": "Grundläggande information om leverantörsfakturor innevarande år"
+       }
+      ],
+      "http://purl.org/dc/terms/description": [
+       {
+        "type": "literal",
+        "lang": "sv",
+        "value": "Månatligt utdrag av de leverantörsfakturor som inkommit till Västra Götalandsregionens förvaltningar"
+       },
+       {
+        "type": "literal",
+        "lang": "sv",
+        "value": "Monthly extract of supplier invoices received by Region Västra Götaland's administrations"
+       }
+      ],
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": [
+       {
+        "type": "uri",
+        "value": "http://www.w3.org/ns/dcat#Distribution"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "metadata": {
+     "https://vgregion.entryscape.net/store/7/resource/254": {
+      "http://purl.org/dc/terms/license": [
+       {
+        "type": "uri",
+        "value": "http://creativecommons.org/publicdomain/zero/1.0/"
+       }
+      ],
+      "http://www.w3.org/ns/dcat#downloadURL": [
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/255"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/256"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/257"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/258"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/259"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/260"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/261"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/262"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/263"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/264"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/265"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/266"
+       }
+      ],
+      "http://purl.org/dc/terms/format": [
+       {
+        "type": "literal",
+        "value": "text/csv"
+       }
+      ],
+      "http://data.europa.eu/r5r/availability": [
+       {
+        "type": "uri",
+        "value": "http://data.europa.eu/r5r/availability/stable"
+       }
+      ],
+      "http://purl.org/dc/terms/modified": [
+       {
+        "datatype": "http://www.w3.org/2001/XMLSchema#date",
+        "type": "literal",
+        "value": "2026-01-30T08:55:46.142Z"
+       }
+      ],
+      "http://www.w3.org/ns/dcat#accessURL": [
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/255"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/256"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/257"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/258"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/259"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/260"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/261"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/262"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/263"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/264"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/265"
+       },
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/266"
+       }
+      ],
+      "http://purl.org/dc/terms/title": [
+       {
+        "type": "literal",
+        "lang": "sv",
+        "value": "Leverantörsfakturor 2025"
+       }
+      ],
+      "http://purl.org/dc/terms/description": [
+       {
+        "type": "literal",
+        "lang": "sv",
+        "value": "Månatligt utdrag av de leverantörsfakturor som inkommit till Västra Götalandsregionens förvaltningar"
+       },
+       {
+        "type": "literal",
+        "lang": "en",
+        "value": "Monthly extract of supplier invoices received by Region Västra Götaland's administrations"
+       }
+      ],
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": [
+       {
+        "type": "uri",
+        "value": "http://www.w3.org/ns/dcat#Distribution"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "metadata": {
+     "https://vgregion.entryscape.net/store/7/resource/241": {
+      "http://purl.org/dc/terms/license": [
+       {
+        "type": "uri",
+        "value": "http://creativecommons.org/publicdomain/zero/1.0/"
+       }
+      ],
+      "http://www.w3.org/ns/dcat#downloadURL": [
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/240"
+       }
+      ],
+      "http://purl.org/dc/terms/format": [
+       {
+        "type": "literal",
+        "value": "text/csv"
+       }
+      ],
+      "http://data.europa.eu/r5r/availability": [
+       {
+        "type": "uri",
+        "value": "http://data.europa.eu/r5r/availability/stable"
+       }
+      ],
+      "http://www.w3.org/ns/dcat#accessURL": [
+       {
+        "type": "uri",
+        "value": "https://vgregion.entryscape.net/store/7/resource/240"
+       }
+      ],
+      "http://purl.org/dc/terms/title": [
+       {
+        "type": "literal",
+        "lang": "sv",
+        "value": "Leverantörsfakturor 2024"
+       }
+      ],
+      "http://purl.org/dc/terms/description": [
+       {
+        "type": "literal",
+        "lang": "sv",
+        "value": "Grundläggande information om leverantörsfakturor som inkommit till Västra Götalandsregionens förvaltningar under 2024"
+       },
+       {
+        "type": "literal",
+        "lang": "en",
+        "value": "Basic information about supplier invoices received by the administrations of the Västra Götaland Region during 2024"
+       }
+      ],
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": [
+       {
+        "type": "uri",
+        "value": "http://www.w3.org/ns/dcat#Distribution"
+       }
+      ]
+     }
+    }
+   }
+  ]
+ }
+}

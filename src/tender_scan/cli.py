@@ -12,6 +12,8 @@ from tender_scan.frameworks import extract_framework, needs_review, validate
 from tender_scan.fx import FxRates
 from tender_scan.models import Notice, format_estimated_value, parse_notice
 from tender_scan.orgnr import normalize_orgnr
+from tender_scan.payments import LOADERS, SourceFile, http_fetch, to_payments
+from tender_scan.payments.base import WinnerIndex
 from tender_scan.records import AwardWinner, FrameworkAgreement
 from tender_scan.storage import Storage
 from tender_scan.ted_client import TedClient
@@ -339,3 +341,82 @@ def winners_list(
             f"{str(row.supplier_orgnr or '-'):13} {_truncate(row.supplier_name, 40)}"
         )
     typer.echo(f"{len(rows)} rader.")
+
+
+# -- payments (M4: öppen fakturadata) ----------------------------------------
+
+payments_app = typer.Typer(
+    help="Load open supplier-ledger data for framework winners.", no_args_is_help=True
+)
+app.add_typer(payments_app, name="payments")
+
+
+@payments_app.command("sources")
+def payments_sources() -> None:
+    """List the registered loaders, their payer orgnr and what they cover."""
+    for key, cls in LOADERS.items():
+        loader = cls()
+        typer.echo(f"{key:10} {loader.payer_orgnr:13} {loader.payer_org}")
+        typer.echo(f"           katalog: {loader.catalogue} — {loader.covers}")
+    typer.echo(
+        "\nSundsvalls kommun och Helsingborgs stad publicerar ingen "
+        "leverantörsreskontra som öppna data; de går via modul 3 (offentlighetsprincipen)."
+    )
+
+
+def _pick_files(files: list[SourceFile], year: int | None, month: int | None) -> list[SourceFile]:
+    if year is not None:
+        files = [f for f in files if f.year == year]
+    if month is not None:
+        files = [f for f in files if f.month in (None, month)]
+    return files
+
+
+@payments_app.command("load")
+def payments_load(
+    source: str = typer.Argument(..., help=f"One of: {', '.join(LOADERS)}"),
+    year: int | None = typer.Option(None, help="Only distributions for this year"),
+    month: int | None = typer.Option(None, help="Only distributions for this month"),
+    file: Path | None = typer.Option(None, help="Read this local file instead of fetching"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report counts and write nothing"),
+) -> None:
+    """Load one source's supplier ledger, keeping only framework winners."""
+    if source not in LOADERS:
+        raise typer.BadParameter(f"unknown source {source!r}; try one of {', '.join(LOADERS)}")
+    loader = LOADERS[source]()
+
+    with Storage(db) as storage:
+        winners = WinnerIndex.of(storage.list_winners())
+        if not winners.names:
+            typer.echo(
+                "award_winners är tom — kör `winners extract` först, annars "
+                "filtreras alla rader bort.",
+                err=True,
+            )
+
+        if file is not None:
+            jobs = [(SourceFile(url=str(file), label=file.name), file.read_bytes())]
+        else:
+            found = _pick_files(loader.discover(http_fetch), year, month)
+            if not found:
+                typer.echo("Inga distributioner matchade urvalet.", err=True)
+                raise typer.Exit(1)
+            typer.echo(f"{len(found)} fil(er) att hämta:")
+            for candidate in found:
+                typer.echo(f"  {candidate.label} — {candidate.url}")
+            jobs = [(candidate, http_fetch(candidate.url)) for candidate in found]
+
+        kept = 0
+        inserted = 0
+        for candidate, blob in jobs:
+            rows = loader.read(blob, candidate.url)
+            payments = to_payments(rows, loader, candidate.url, winners=winners)
+            kept += len(payments)
+            if not dry_run:
+                inserted += storage.insert_payments(payments)
+
+    if dry_run:
+        typer.echo(f"Would keep {kept} aggregated rows. Nothing was written.")
+    else:
+        typer.echo(f"Kept {kept} aggregated rows, inserted {inserted} new ones.")

@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 
 from tender_scan import cli
 from tender_scan.cli import app
+from tender_scan.records import AwardWinner
 from tender_scan.storage import Storage
 from tender_scan.ted_client import TedClient
 
@@ -250,3 +251,107 @@ def test_winners_list_rejects_an_invalid_orgnr(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert "not a valid organisationsnummer" in result.output
+
+
+# -- payments (M4) -----------------------------------------------------------
+
+
+PAYMENT_FIXTURES = Path(__file__).parent / "fixtures" / "payments"
+
+
+def _with_winner(db: Path, name: str, orgnr: str | None) -> None:
+    with Storage(db) as storage:
+        storage.replace_winners("1-2026", [AwardWinner("1-2026", name, orgnr, "LOT-0000")])
+
+
+def test_payments_sources_names_the_two_missing_publishers() -> None:
+    result = CliRunner().invoke(app, ["payments", "sources"])
+    assert result.exit_code == 0, result.output
+    assert "232100-0131" in result.output
+    assert "Sundsvalls kommun" in result.output
+    assert "Helsingborgs stad" in result.output
+
+
+def test_payments_load_from_a_local_file(tmp_path: Path) -> None:
+    db = tmp_path / "t.sqlite3"
+    _with_winner(db, "Sensative AB", "556922-4644")
+    result = CliRunner().invoke(
+        app,
+        [
+            "payments",
+            "load",
+            "vgr",
+            "--file",
+            str(PAYMENT_FIXTURES / "vgr_sample.csv"),
+            "--db",
+            str(db),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Kept 1 aggregated rows, inserted 1 new ones." in result.output
+
+
+def test_payments_load_is_idempotent(tmp_path: Path) -> None:
+    db = tmp_path / "t.sqlite3"
+    _with_winner(db, "Sensative AB", "556922-4644")
+    args = [
+        "payments",
+        "load",
+        "vgr",
+        "--file",
+        str(PAYMENT_FIXTURES / "vgr_sample.csv"),
+        "--db",
+        str(db),
+    ]
+    runner = CliRunner()
+    runner.invoke(app, args)
+    result = runner.invoke(app, args)
+    assert "inserted 0 new ones" in result.output
+
+
+def test_payments_load_dry_run_writes_nothing(tmp_path: Path) -> None:
+    db = tmp_path / "t.sqlite3"
+    _with_winner(db, "Sensative AB", "556922-4644")
+    result = CliRunner().invoke(
+        app,
+        [
+            "payments",
+            "load",
+            "vgr",
+            "--file",
+            str(PAYMENT_FIXTURES / "vgr_sample.csv"),
+            "--db",
+            str(db),
+            "--dry-run",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Nothing was written." in result.output
+    with Storage(db) as storage:
+        stored = storage.connection().execute("SELECT COUNT(*) FROM supplier_payments").fetchone()
+    assert stored[0] == 0
+
+
+def test_payments_load_warns_when_there_are_no_winners_to_match(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "payments",
+            "load",
+            "vgr",
+            "--file",
+            str(PAYMENT_FIXTURES / "vgr_sample.csv"),
+            "--db",
+            str(tmp_path / "t.sqlite3"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "award_winners är tom" in result.output
+
+
+def test_payments_load_rejects_an_unknown_source(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app, ["payments", "load", "malmo", "--db", str(tmp_path / "t.sqlite3")]
+    )
+    assert result.exit_code != 0
+    assert "unknown source" in result.output
