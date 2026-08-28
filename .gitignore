@@ -13,3 +13,6 @@ data/
 
 # Drafted requests carry the sender's name and the authorities being contacted.
 foia/
+
+# Structured external-call log, written at runtime.
+tender_scan.log
