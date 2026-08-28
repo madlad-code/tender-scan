@@ -33,6 +33,10 @@ class FrameworkAgreement:
     end_date: str | None = None
     max_duration_months: int | None = None
     cpv_main: str | None = None
+    # True when the buyer is a known central purchasing body. Those publish no
+    # list of the organisations entitled to call off, so coverage has no
+    # denominator and the report must say so rather than imply full coverage.
+    buyer_is_cpb: bool = False
     raw_excerpt: str | None = None
     updated_at: str | None = None  # storage stamps the current UTC time when None
 
@@ -56,6 +60,7 @@ class SupplierPayment:
     """One payment line from a buyer to a supplier, for one period."""
 
     payer_org: str
+    payer_orgnr: str | None
     supplier_name: str
     supplier_orgnr: str | None
     amount_sek: int

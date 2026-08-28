@@ -5,7 +5,7 @@ from typer.testing import CliRunner
 
 from tender_scan import cli
 from tender_scan.cli import app
-from tender_scan.records import AwardWinner
+from tender_scan.records import AwardWinner, FrameworkAgreement, SupplierPayment
 from tender_scan.storage import Storage
 from tender_scan.ted_client import TedClient
 
@@ -355,3 +355,90 @@ def test_payments_load_rejects_an_unknown_source(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert "unknown source" in result.output
+
+
+# -- report / utilization (M5) -----------------------------------------------
+
+
+def _measurable_db(tmp_path: Path) -> Path:
+    db = tmp_path / "t.sqlite3"
+    with Storage(db) as storage:
+        storage.upsert_framework(
+            FrameworkAgreement(
+                notice_id="1-2026",
+                buyer_name="Göteborgs Stad",
+                buyer_orgnr="212000-1355",
+                title="Ramavtal kommunikationstjänster",
+                is_framework=True,
+                cap_value_sek=5_000_000,
+                cap_source="eforms_field",
+                cap_confidence=0.95,
+                start_date="2025-03-01",
+                end_date="2029-02-28",
+                max_duration_months=47,
+                raw_excerpt="BT-118 = 5 000 000 SEK",
+            )
+        )
+        storage.replace_framework_buyers("1-2026", [("212000-1355", "Göteborgs Stad")])
+        storage.replace_winners(
+            "1-2026", [AwardWinner("1-2026", "Consid AB", "556599-4307", "LOT-0000", rank=1)]
+        )
+        storage.insert_payments(
+            [
+                SupplierPayment(
+                    payer_org="Göteborgs Stad",
+                    payer_orgnr="212000-1355",
+                    supplier_name="Consid AB",
+                    supplier_orgnr="556599-4307",
+                    amount_sek=1_896_813,
+                    period_year=2026,
+                    period_month=7,
+                    source="open_data",
+                    source_url="https://catalog.goteborg.se/store/6/resource/129628",
+                )
+            ]
+        )
+    return db
+
+
+def test_report_writes_markdown_to_a_file(tmp_path: Path) -> None:
+    out = tmp_path / "r.md"
+    result = CliRunner().invoke(
+        app, ["report", "1-2026", "--db", str(_measurable_db(tmp_path)), "--out", str(out)]
+    )
+    assert result.exit_code == 0, result.output
+    text = out.read_text(encoding="utf-8")
+    assert "## Metodbegränsningar" in text
+    assert "1 896 813 SEK" in text
+
+
+def test_report_renders_html(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app, ["report", "1-2026", "--db", str(_measurable_db(tmp_path)), "--format", "html"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "<!doctype html>" in result.output
+
+
+def test_report_rejects_an_unknown_format(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app, ["report", "1-2026", "--db", str(_measurable_db(tmp_path)), "--format", "pdf"]
+    )
+    assert result.exit_code != 0
+
+
+def test_report_says_what_to_run_when_the_notice_is_missing(tmp_path: Path) -> None:
+    result = CliRunner().invoke(app, ["report", "999-2026", "--db", str(tmp_path / "t.sqlite3")])
+    assert result.exit_code == 1
+    assert "frameworks extract" in result.output
+
+
+def test_utilization_table_prints_coverage_beside_every_rate(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app, ["utilization", "--measurable", "--db", str(_measurable_db(tmp_path))]
+    )
+    assert result.exit_code == 0, result.output
+    assert "täckning" in result.output
+    row = next(line for line in result.output.splitlines() if line.startswith("1-2026"))
+    assert "37.9%" in row
+    assert "100.0%" in row  # the coverage column, on the same line as the rate

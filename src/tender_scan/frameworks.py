@@ -41,6 +41,39 @@ CAP_SOURCE_MANUAL = "manual"
 
 REVIEW_THRESHOLD = 0.7
 
+# Swedish central purchasing bodies. These procure on behalf of hundreds or
+# thousands of other organisations and publish no list of who is entitled to
+# call off, so a coverage ratio computed against the one buyer named in the
+# notice would read 1/1 — a flattering number for what is really unknown.
+# Kept as an explicit, checkable list rather than inferred: eForms carries no
+# central-purchasing-body indicator in any of the 137 cached notices.
+CENTRAL_PURCHASING_BODIES: dict[str, str] = {
+    "556819-4798": "Adda Inköpscentral AB",
+    "202100-0829": "Kammarkollegiet (Statens inköpscentral)",
+    "556487-9325": "SKL Kommentus Inköpscentral AB",
+    "202100-5026": "Upphandlingsmyndigheten",
+}
+
+
+def is_central_purchasing_body(orgnr: str | None) -> bool:
+    return orgnr in CENTRAL_PURCHASING_BODIES if orgnr else False
+
+
+def named_buyers(graph: NoticeGraph) -> list[tuple[str, str | None]]:
+    """(orgnr, name) for every buyer the notice names, deduplicated.
+
+    130 of the 137 cached framework notices name one buyer; the rest name up
+    to 16. That count is the coverage ratio's denominator, so it is stored
+    rather than assumed to be 1.
+    """
+    found: dict[str, str | None] = {}
+    for buyer in graph.buyers():
+        orgnr = normalize_orgnr(buyer.company_id)
+        if orgnr is not None:
+            found.setdefault(orgnr, buyer.name)
+    return list(found.items())
+
+
 BASIS_NOTICE_OVERALL = "notice-overall-maximum"
 BASIS_NOTICE_FRAMEWORK = "notice-framework-maximum"
 BASIS_LOT_SUM = "lot-maximum-sum"
@@ -399,6 +432,9 @@ def extract_framework(
         end_date=end,
         max_duration_months=_months_between(start, end),
         cpv_main=graph.cpv_main,
+        buyer_is_cpb=is_central_purchasing_body(
+            normalize_orgnr(buyer.company_id) if buyer else None
+        ),
         raw_excerpt=" ".join(excerpt_parts) or None,
     )
 

@@ -195,6 +195,7 @@ class NoticeGraph:
     title: str | None
     cpv_main: str | None
     buyer_org_id: str | None
+    buyer_org_ids: tuple[str, ...]  # every ContractingParty, for the coverage denominator
     organizations: dict[str, Organization]
     lots: dict[str, Lot]
     lot_results: tuple[LotResult, ...]
@@ -209,6 +210,21 @@ class NoticeGraph:
     @property
     def buyer(self) -> Organization | None:
         return self.organizations.get(self.buyer_org_id or "")
+
+    def buyers(self) -> tuple[Organization, ...]:
+        """Every buyer the notice names.
+
+        130 of the 137 cached framework notices name one; the rest name up to
+        16 in a joint procurement. That count is the honest denominator for
+        the coverage ratio — a framework with 16 entitled buyers whose spend
+        we know for one of them is 1/16 covered, not measured.
+        """
+        found = [
+            self.organizations[org_id]
+            for org_id in self.buyer_org_ids
+            if org_id in self.organizations
+        ]
+        return tuple(found)
 
     def is_framework(self) -> bool:
         return any(lot.framework_type not in (None, "none") for lot in self.lots.values())
@@ -394,7 +410,11 @@ def parse_graph(xml_bytes: bytes, notice_id: str) -> NoticeGraph:
             if party_id is not None and org_id is not None:
                 tendering_parties[party_id] = org_id
 
-    buyer_party = first(child(root, "ContractingParty"), "PartyIdentification")
+    buyer_parties = [
+        buyer_id
+        for party in children(root, "ContractingParty")
+        if (buyer_id := text_of(child(first(party, "PartyIdentification"), "ID"))) is not None
+    ]
 
     return NoticeGraph(
         notice_id=notice_id,
@@ -406,7 +426,8 @@ def parse_graph(xml_bytes: bytes, notice_id: str) -> NoticeGraph:
         cpv_main=first_text(
             first(project, "MainCommodityClassification"), "ItemClassificationCode"
         ),
-        buyer_org_id=text_of(child(buyer_party, "ID")),
+        buyer_org_id=buyer_parties[0] if buyer_parties else None,
+        buyer_org_ids=tuple(dict.fromkeys(buyer_parties)),
         organizations=organizations,
         lots=lots,
         lot_results=tuple(lot_results),

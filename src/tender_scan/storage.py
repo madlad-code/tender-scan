@@ -8,6 +8,16 @@ Schema versions (PRAGMA user_version):
   3   — utilization tables next to `notices`, which is left exactly as it was:
         framework_agreements, award_winners, supplier_payments, foia_requests
         and fx_rates. Purely additive, so the migration only creates tables.
+  4   — buyer identity, which is what keeps an unrelated payment out of a
+        framework's observed spend:
+          * supplier_payments.payer_orgnr — attribution by organisationsnummer
+            rather than by display name;
+          * framework_buyers — every buyer a notice names, since 7 of the 137
+            cached notices name between 2 and 16, and that count is the honest
+            denominator for the coverage ratio;
+          * framework_agreements.buyer_is_cpb — set when the buyer is a known
+            central purchasing body, whose entitled organisations TED does not
+            publish, so coverage has no denominator at all.
 
 Legacy databases are migrated automatically on open (a `<db>.bak` copy of the
 file is written first). Rows are re-parsed from their stored raw JSON, so the
@@ -33,7 +43,7 @@ from tender_scan.records import AwardWinner, FrameworkAgreement, SupplierPayment
 
 DEFAULT_DB_PATH = "tender_scan.db"
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _SCHEMA_V2 = """
 CREATE TABLE IF NOT EXISTS notices (
@@ -65,6 +75,7 @@ CREATE TABLE IF NOT EXISTS framework_agreements (
     end_date             TEXT,
     max_duration_months  INTEGER,
     cpv_main             TEXT,
+    buyer_is_cpb         INTEGER NOT NULL DEFAULT 0,
     raw_excerpt          TEXT,
     updated_at           TEXT NOT NULL
 );
@@ -83,6 +94,7 @@ CREATE TABLE IF NOT EXISTS award_winners (
 
 CREATE TABLE IF NOT EXISTS supplier_payments (
     payer_org      TEXT NOT NULL,
+    payer_orgnr    TEXT,
     supplier_name  TEXT NOT NULL,
     supplier_orgnr TEXT,
     amount_sek     INTEGER NOT NULL,
@@ -93,6 +105,13 @@ CREATE TABLE IF NOT EXISTS supplier_payments (
     row_hash       TEXT NOT NULL,
     ingested_at    TEXT NOT NULL,
     PRIMARY KEY (row_hash)
+);
+
+CREATE TABLE IF NOT EXISTS framework_buyers (
+    notice_id   TEXT NOT NULL,
+    buyer_orgnr TEXT NOT NULL,
+    buyer_name  TEXT,
+    PRIMARY KEY (notice_id, buyer_orgnr)
 );
 
 CREATE TABLE IF NOT EXISTS foia_requests (
@@ -122,6 +141,7 @@ CREATE TABLE IF NOT EXISTS fx_rates (
 CREATE INDEX IF NOT EXISTS idx_award_winners_orgnr ON award_winners (supplier_orgnr);
 CREATE INDEX IF NOT EXISTS idx_payments_orgnr ON supplier_payments (supplier_orgnr);
 CREATE INDEX IF NOT EXISTS idx_payments_payer ON supplier_payments (payer_org);
+CREATE INDEX IF NOT EXISTS idx_payments_payer_orgnr ON supplier_payments (payer_orgnr);
 """
 
 _SCHEMA = _SCHEMA_V2 + _SCHEMA_V3
@@ -146,6 +166,7 @@ _FRAMEWORK_COLUMNS = (
     "end_date",
     "max_duration_months",
     "cpv_main",
+    "buyer_is_cpb",
     "raw_excerpt",
     "updated_at",
 )
@@ -163,6 +184,7 @@ _WINNER_COLUMNS = (
 
 _PAYMENT_COLUMNS = (
     "payer_org",
+    "payer_orgnr",
     "supplier_name",
     "supplier_orgnr",
     "amount_sek",
@@ -181,6 +203,10 @@ class Storage:
         self._conn = sqlite3.connect(self.db_path)
         self._conn.row_factory = sqlite3.Row
         self._migrate_if_needed()
+        # Columns first, then the schema script: it creates an index on
+        # supplier_payments.payer_orgnr, which fails outright on a database
+        # whose table predates that column.
+        self._add_missing_columns()
         self._conn.executescript(_SCHEMA)
         self._conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         self._conn.commit()
@@ -214,6 +240,27 @@ class Storage:
             self._migrate_v1_to_v2()
         # v2 -> v3 adds tables only; the CREATE TABLE IF NOT EXISTS run in
         # __init__ is the whole migration, and `notices` is never touched.
+
+    def _add_missing_columns(self) -> None:
+        """Add columns that `CREATE TABLE IF NOT EXISTS` cannot add to a table
+        that already exists.
+
+        Run on every open rather than gated on the version number: a database
+        stamped with the current version by an older build of that version
+        would otherwise never gain them, and `PRAGMA table_info` is cheap and
+        idempotent. Existing payment rows keep a NULL payer_orgnr rather than
+        having one inferred from their payer_org text — reload the source to
+        fill them in, since a guessed buyer identity is exactly what this
+        column exists to prevent.
+        """
+        for table, column, ddl in (
+            ("supplier_payments", "payer_orgnr", "TEXT"),
+            ("framework_agreements", "buyer_is_cpb", "INTEGER NOT NULL DEFAULT 0"),
+        ):
+            columns = {row[1] for row in self._conn.execute(f"PRAGMA table_info({table})")}
+            if columns and column not in columns:
+                self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+        self._conn.commit()
 
     def _backup_file(self) -> None:
         source = Path(self.db_path)
@@ -332,6 +379,28 @@ class Storage:
         query += " ORDER BY notice_id"
         return [_framework_from_row(row) for row in self._conn.execute(query, params)]
 
+    def replace_framework_buyers(
+        self, notice_id: str, buyers: Iterable[tuple[str, str | None]]
+    ) -> None:
+        """Make the stored buyers of one notice exactly `buyers` — (orgnr, name)."""
+        with self._conn:
+            self._conn.execute("DELETE FROM framework_buyers WHERE notice_id = ?", (notice_id,))
+            self._conn.executemany(
+                "INSERT OR IGNORE INTO framework_buyers (notice_id, buyer_orgnr, buyer_name) "
+                "VALUES (?, ?, ?)",
+                [(notice_id, orgnr, name) for orgnr, name in buyers if orgnr],
+            )
+
+    def list_framework_buyers(self, notice_id: str) -> list[tuple[str, str | None]]:
+        return [
+            (row["buyer_orgnr"], row["buyer_name"])
+            for row in self._conn.execute(
+                "SELECT buyer_orgnr, buyer_name FROM framework_buyers "
+                "WHERE notice_id = ? ORDER BY buyer_orgnr",
+                (notice_id,),
+            )
+        ]
+
     # -- award winners -----------------------------------------------------
 
     def replace_winners(self, notice_id: str, winners: Iterable[AwardWinner]) -> None:
@@ -446,6 +515,7 @@ def _framework_values(fw: FrameworkAgreement) -> tuple[Any, ...]:
         fw.end_date,
         fw.max_duration_months,
         fw.cpv_main,
+        int(fw.buyer_is_cpb),
         fw.raw_excerpt,
         fw.updated_at or _utc_now(),
     )
@@ -466,6 +536,7 @@ def _framework_from_row(row: sqlite3.Row) -> FrameworkAgreement:
         end_date=row["end_date"],
         max_duration_months=row["max_duration_months"],
         cpv_main=row["cpv_main"],
+        buyer_is_cpb=bool(row["buyer_is_cpb"]),
         raw_excerpt=row["raw_excerpt"],
         updated_at=row["updated_at"],
     )
@@ -509,6 +580,7 @@ def _payment_values(payment: SupplierPayment) -> tuple[Any, ...]:
     )
     return (
         payment.payer_org,
+        payment.payer_orgnr,
         payment.supplier_name,
         payment.supplier_orgnr,
         payment.amount_sek,

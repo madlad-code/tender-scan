@@ -46,7 +46,7 @@ class VgrLoader(Loader):
     covers = "monthly CSV, 2024 onwards"
 
     def discover(self, fetch: Fetcher) -> list[SourceFile]:
-        return catalogue_files(fetch, HOST, "leverantörsfaktur")
+        return catalogue_files(fetch, HOST, "leverantör")
 
     def read(self, blob: bytes, source_url: str) -> Iterator[RawRow]:
         lines = split_lines(decode(blob, source_url))

@@ -39,7 +39,7 @@ class VasterasLoader(Loader):
     covers = "rowstore JSON per year, plus monthly CSV"
 
     def discover(self, fetch: Fetcher) -> list[SourceFile]:
-        return catalogue_files(fetch, HOST, "leverantörsreskontra")
+        return catalogue_files(fetch, HOST, "leverantör")
 
     def read(self, blob: bytes, source_url: str) -> Iterator[RawRow]:
         for row in parse_json_rows(blob, source_url):

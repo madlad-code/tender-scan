@@ -39,7 +39,7 @@ class GoteborgLoader(Loader):
     covers = "monthly CSV, 2016 onwards"
 
     def discover(self, fetch: Fetcher) -> list[SourceFile]:
-        return catalogue_files(fetch, HOST, "leverantörsfaktur")
+        return catalogue_files(fetch, HOST, "leverantör")
 
     def read(self, blob: bytes, source_url: str) -> Iterator[RawRow]:
         reader = csv.DictReader(decode(blob, source_url).splitlines(), delimiter=",")

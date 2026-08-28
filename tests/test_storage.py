@@ -244,7 +244,7 @@ def test_fresh_db_has_every_v3_table(tmp_path):
         pass
 
     conn = sqlite3.connect(db)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     conn.close()
     assert set(_V3_TABLES) <= _tables(db)
 
@@ -297,7 +297,7 @@ def test_v1_database_reaches_v3_in_one_open(tmp_path):
     assert notice.currency == "SEK"
     assert notice.deadline == "2026-08-20T00:00:00Z"
     conn = sqlite3.connect(db)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     conn.close()
     assert set(_V3_TABLES) <= _tables(db)
     assert (tmp_path / "legacy.db.bak").exists()
@@ -482,6 +482,7 @@ def test_list_winners_without_notice_id_returns_all(tmp_path):
 def make_payment(**overrides) -> SupplierPayment:
     defaults = dict(
         payer_org="Statens institutionsstyrelse",
+        payer_orgnr="202100-4508",
         supplier_name="Konsultbolaget AB",
         supplier_orgnr="556224-8012",
         amount_sek=1_200_000,
@@ -641,3 +642,23 @@ def test_payment_row_hash_falls_back_to_the_name_without_a_valid_orgnr():
         period_month=3,
     )
     assert bad_orgnr == named
+
+
+def test_v3_database_gains_payer_orgnr_on_open(tmp_path):
+    """The v3 -> v4 migration is additive; existing rows keep a NULL orgnr
+    rather than having a buyer identity inferred from their payer_org text."""
+    db = tmp_path / "v3.db"
+    with Storage(db) as storage:
+        conn = storage.connection()
+        conn.execute("DROP INDEX idx_payments_payer_orgnr")
+        conn.execute("ALTER TABLE supplier_payments DROP COLUMN payer_orgnr")
+        conn.execute("PRAGMA user_version = 3")
+        conn.commit()
+
+    with Storage(db) as storage:
+        columns = {
+            row[1] for row in storage.connection().execute("PRAGMA table_info(supplier_payments)")
+        }
+        version = storage.connection().execute("PRAGMA user_version").fetchone()[0]
+    assert "payer_orgnr" in columns
+    assert version == SCHEMA_VERSION

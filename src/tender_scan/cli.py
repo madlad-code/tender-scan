@@ -7,8 +7,9 @@ from pathlib import Path
 import typer
 
 from tender_scan import report as report_module
+from tender_scan import utilization
 from tender_scan.eforms import DEFAULT_CACHE_DIR, EformsError, notice_text, parse_graph
-from tender_scan.frameworks import extract_framework, needs_review, validate
+from tender_scan.frameworks import extract_framework, named_buyers, needs_review, validate
 from tender_scan.fx import FxRates
 from tender_scan.models import Notice, format_estimated_value, parse_notice
 from tender_scan.orgnr import normalize_orgnr
@@ -164,9 +165,12 @@ def _xml_files(cache: Path) -> list[Path]:
 
 def _extract_from_cache(
     paths: list[Path], fx: FxRates | None
-) -> tuple[list[FrameworkAgreement], list[tuple[str, str]]]:
+) -> tuple[
+    list[FrameworkAgreement], dict[str, list[tuple[str, str | None]]], list[tuple[str, str]]
+]:
     """Read each cached XML into a row. Never fetches; a bad file is skipped, not fatal."""
     rows: list[FrameworkAgreement] = []
+    buyers: dict[str, list[tuple[str, str | None]]] = {}
     skipped: list[tuple[str, str]] = []
     for path in paths:
         notice_id = path.stem
@@ -177,7 +181,8 @@ def _extract_from_cache(
             skipped.append((notice_id, str(exc)))
             continue
         rows.append(extract_framework(graph, fx=fx, text=notice_text(xml_bytes)))
-    return rows, skipped
+        buyers[notice_id] = named_buyers(graph)
+    return rows, buyers, skipped
 
 
 @frameworks_app.command("extract")
@@ -197,7 +202,7 @@ def frameworks_extract(
     if dry_run:
         # No database, so no FX cache either: an unconvertible amount is reported
         # as such rather than silently converted with an invented rate.
-        rows, skipped = _extract_from_cache(paths, None)
+        rows, _, skipped = _extract_from_cache(paths, None)
         for row in rows:
             cap = f"{row.cap_value_sek:,}".replace(",", " ") if row.cap_value_sek else "-"
             typer.echo(f"{row.notice_id:14} {cap:>16}  {_truncate(row.title, 60)}")
@@ -205,9 +210,10 @@ def frameworks_extract(
         return
 
     with Storage(db) as storage:
-        rows, skipped = _extract_from_cache(paths, FxRates(storage.connection()))
+        rows, buyers, skipped = _extract_from_cache(paths, FxRates(storage.connection()))
         for row in rows:
             storage.upsert_framework(row)
+            storage.replace_framework_buyers(row.notice_id, buyers[row.notice_id])
     for notice_id, reason in skipped:
         typer.echo(f"skipped {notice_id}: {reason}", err=True)
     typer.echo(f"Wrote {len(rows)} framework rows ({len(skipped)} skipped).")
@@ -241,7 +247,7 @@ def frameworks_validate(
     paths = _xml_files(cache)
     if limit is not None:
         paths = paths[:limit]
-    rows, skipped = _extract_from_cache(paths, None)
+    rows, _, skipped = _extract_from_cache(paths, None)
     typer.echo(validate(rows, skipped).render())
 
 
@@ -378,6 +384,7 @@ def payments_load(
     year: int | None = typer.Option(None, help="Only distributions for this year"),
     month: int | None = typer.Option(None, help="Only distributions for this month"),
     file: Path | None = typer.Option(None, help="Read this local file instead of fetching"),
+    url: str | None = typer.Option(None, help="Fetch this distribution URL instead of discovering"),
     db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Report counts and write nothing"),
 ) -> None:
@@ -397,8 +404,23 @@ def payments_load(
 
         if file is not None:
             jobs = [(SourceFile(url=str(file), label=file.name), file.read_bytes())]
+        elif url is not None:
+            jobs = [(SourceFile(url=url, label=url), http_fetch(url))]
         else:
-            found = _pick_files(loader.discover(http_fetch), year, month)
+            available = loader.discover(http_fetch)
+            # Newer catalogue entries group several months under one untitled
+            # distribution, so their period is unreadable. Say how many were
+            # left out instead of filtering them away silently.
+            undated = [f for f in available if f.year is None]
+            if undated:
+                typer.echo(
+                    f"{len(undated)} distribution(er) saknar period i titeln och kan inte "
+                    "väljas med --year/--month. Hämta en av dem med --url:",
+                    err=True,
+                )
+                for candidate in undated[:5]:
+                    typer.echo(f"  {candidate.url}", err=True)
+            found = _pick_files([f for f in available if f.year is not None], year, month)
             if not found:
                 typer.echo("Inga distributioner matchade urvalet.", err=True)
                 raise typer.Exit(1)
@@ -420,3 +442,69 @@ def payments_load(
         typer.echo(f"Would keep {kept} aggregated rows. Nothing was written.")
     else:
         typer.echo(f"Kept {kept} aggregated rows, inserted {inserted} new ones.")
+
+
+# -- report (M5: utnyttjandegrad) --------------------------------------------
+
+
+@app.command("report")
+def utilization_report(
+    notice_id: str = typer.Argument(..., help="TED publication number, e.g. 109559-2026"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+    out: Path | None = typer.Option(None, help="Write the report here instead of stdout"),
+    fmt: str = typer.Option("md", "--format", help="md or html"),
+) -> None:
+    """Build the utilization report for one framework from stored data."""
+    if fmt not in ("md", "html"):
+        raise typer.BadParameter("--format must be md or html")
+    with Storage(db) as storage:
+        conn = storage.connection()
+        data = utilization.load(conn, notice_id)
+        if data is None:
+            typer.echo(
+                f"{notice_id} finns inte som ramavtal i databasen. Kör `frameworks extract` först.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        text = utilization.render_markdown(
+            data,
+            utilization.payment_sources(conn, notice_id),
+            utilization.framework_winners(conn, notice_id),
+        )
+    if fmt == "html":
+        text = utilization.render_html(text, data)
+    if out is not None:
+        out.write_text(text, encoding="utf-8")
+        typer.echo(f"Skrev {out}")
+    else:
+        typer.echo(text)
+
+
+@app.command("utilization")
+def utilization_table(
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+    measurable: bool = typer.Option(
+        False, "--measurable", help="Only frameworks with both a ceiling and observed spend"
+    ),
+) -> None:
+    """Print the utilization view as a table, largest observed spend first."""
+    with Storage(db) as storage:
+        rows = utilization.load_all(storage.connection())
+    if measurable:
+        rows = [r for r in rows if r.cap_value_sek and r.observed_spend_sek]
+    rows.sort(key=lambda r: r.observed_spend_sek, reverse=True)
+    typer.echo(
+        f"{'notis':14} {'takvolym':>16} {'observerat':>16} {'grad':>7} "
+        f"{'täckning':>9} {'band':>7}  köpare"
+    )
+    for row in rows:
+        # The coverage column is printed on the same line as the rate, always:
+        # a utilization figure without it is a misleading number.
+        typer.echo(
+            f"{row.notice_id:14} {utilization.sek(row.cap_value_sek):>16} "
+            f"{utilization.sek(row.observed_spend_sek):>16} "
+            f"{utilization.pct(row.utilization_rate):>7} "
+            f"{utilization.pct(row.coverage_ratio):>9} {row.confidence_band:>7}  "
+            f"{_truncate(row.buyer_name, 34)}"
+        )
+    typer.echo(f"{len(rows)} ramavtal.")

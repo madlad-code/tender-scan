@@ -243,6 +243,7 @@ def to_payments(
     return [
         SupplierPayment(
             payer_org=loader.payer_org,
+            payer_orgnr=loader.payer_orgnr,
             supplier_name=names[key],
             supplier_orgnr=key[1],
             amount_sek=to_int_sek(total),
@@ -279,20 +280,28 @@ _PERIOD_YYYY = re.compile(r"(20\d{2})")
 
 
 def entryscape_search(
-    fetch: Fetcher, host: str, query: str = "title:Leverant*", limit: int = 100
+    fetch: Fetcher, host: str, query: str = "title:Leverant*", limit: int = 200
 ) -> list[tuple[str, str]]:
-    """(title, downloadURL) for every distribution the catalogue lists."""
+    """(title, downloadURL) for every distribution the catalogue lists.
+
+    A single distribution entry can carry **several** downloadURLs: Göteborg
+    publishes its 2026 months as one "Leverantörsreskontra CSV" entry with
+    seven URLs under it. Taking only the first silently drops six months of
+    invoices, so every URL is returned.
+    """
     url = ENTRYSCAPE_SEARCH.format(host=host, query=query, limit=limit)
     payload = json.loads(decode(fetch(url), url))
     found: list[tuple[str, str]] = []
     for child in payload.get("resource", {}).get("children", []):
         for properties in (child.get("metadata") or {}).values():
-            download = properties.get(_DOWNLOAD_URL)
-            if not download:
+            downloads = properties.get(_DOWNLOAD_URL)
+            if not downloads:
                 continue
             titles = properties.get(_TITLE) or []
             title = titles[0].get("value", "") if titles else ""
-            found.append((title, download[0].get("value", "")))
+            for entry in downloads:
+                if value := entry.get("value", ""):
+                    found.append((title, value))
     return found
 
 
@@ -306,14 +315,22 @@ def period_of(title: str) -> tuple[int | None, int | None]:
 
 
 def catalogue_files(fetch: Fetcher, host: str, must_contain: str) -> list[SourceFile]:
-    """Distributions whose title names this kind of ledger, newest period first."""
-    files = [
-        SourceFile(url=url, label=title, year=year, month=month)
-        for title, url in entryscape_search(fetch, host)
-        if must_contain.casefold() in title.casefold() and url
-        for year, month in [period_of(title)]
-    ]
-    return sorted(files, key=lambda f: (f.year or 0, f.month or 0), reverse=True)
+    """Distributions whose title names this kind of ledger, newest period first.
+
+    The period comes from the title, which older entries carry ("Leverantörs-
+    faktura 202601") and newer grouped entries do not. A file whose period
+    cannot be read keeps `year = None`; the CLI reports how many it left out
+    rather than filtering them away silently.
+    """
+    seen: set[str] = set()
+    files: list[SourceFile] = []
+    for title, url in entryscape_search(fetch, host):
+        if must_contain.casefold() not in title.casefold() or not url or url in seen:
+            continue
+        seen.add(url)
+        year, month = period_of(title)
+        files.append(SourceFile(url=url, label=title, year=year, month=month))
+    return sorted(files, key=lambda f: (f.year or 0, f.month or 0, f.url), reverse=True)
 
 
 def http_fetch(url: str) -> bytes:
