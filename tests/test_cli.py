@@ -205,3 +205,48 @@ def test_frameworks_validate_prints_the_denominator(tmp_path: Path) -> None:
     result = CliRunner().invoke(app, ["frameworks", "validate", "--cache", str(_corpus(tmp_path))])
     assert result.exit_code == 0, result.output
     assert "2 av 3" in result.output
+
+
+# -- winners (M2) ------------------------------------------------------------
+
+
+def test_winners_extract_writes_rows(tmp_path: Path) -> None:
+    db = tmp_path / "t.sqlite3"
+    result = CliRunner().invoke(
+        app, ["winners", "extract", "--cache", str(_corpus(tmp_path)), "--db", str(db)]
+    )
+    assert result.exit_code == 0, result.output
+    with Storage(db) as storage:
+        rows = storage.list_winners()
+    assert {row.notice_id for row in rows} == {"1884-2026", "15840-2026", "8020-2026"}
+    assert "Leverantörsrader:         6" in result.output
+
+
+def test_winners_extract_dry_run_writes_nothing(tmp_path: Path) -> None:
+    db = tmp_path / "t.sqlite3"
+    result = CliRunner().invoke(
+        app,
+        ["winners", "extract", "--cache", str(_corpus(tmp_path)), "--db", str(db), "--dry-run"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Nothing was written." in result.output
+    with Storage(db) as storage:
+        assert storage.list_winners() == []
+
+
+def test_winners_list_filters_by_orgnr(tmp_path: Path) -> None:
+    db = tmp_path / "t.sqlite3"
+    runner = CliRunner()
+    runner.invoke(app, ["winners", "extract", "--cache", str(_corpus(tmp_path)), "--db", str(db)])
+    result = runner.invoke(app, ["winners", "list", "--orgnr", "5562248012", "--db", str(db)])
+    assert result.exit_code == 0, result.output
+    assert "AFRY Sweden AB" in result.output
+    assert "PlantVision AB" not in result.output
+
+
+def test_winners_list_rejects_an_invalid_orgnr(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app, ["winners", "list", "--orgnr", "1234567890", "--db", str(tmp_path / "t.sqlite3")]
+    )
+    assert result.exit_code != 0
+    assert "not a valid organisationsnummer" in result.output

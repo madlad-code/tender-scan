@@ -527,3 +527,19 @@ def graph_ranks(xml_bytes: bytes):
 def test_rank_is_none_when_the_notice_publishes_no_ranking(eforms_1884: bytes) -> None:
     graph = parse_graph(eforms_1884, "1884-2026")
     assert all(t.rank is None for t in graph.lot_tenders.values())
+
+
+def test_ted_double_encoded_ampersands_are_undone() -> None:
+    """TED publishes `Ernst &amp;amp; Young`, so one XML decode leaves `&amp;`."""
+    xml = (
+        b'<?xml version="1.0" encoding="utf-8"?><ContractAwardNotice '
+        b'xmlns="urn:oasis:names:specification:ubl:schema:xsd:ContractAwardNotice-2">'
+        b"<UBLExtensions><UBLExtension><ExtensionContent><EformsExtension>"
+        b"<NoticeResult><Organization><PartyIdentification><ID>ORG-0001</ID>"
+        b"</PartyIdentification><PartyName><Name>Ernst &amp;amp; Young Aktiebolag</Name>"
+        b"</PartyName></Organization></NoticeResult>"
+        b"</EformsExtension></ExtensionContent></UBLExtension></UBLExtensions>"
+        b"</ContractAwardNotice>"
+    )
+    graph = parse_graph(xml, "1-2026")
+    assert graph.organizations["ORG-0001"].name == "Ernst & Young Aktiebolag"

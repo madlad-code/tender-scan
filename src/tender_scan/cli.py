@@ -11,9 +11,11 @@ from tender_scan.eforms import DEFAULT_CACHE_DIR, EformsError, notice_text, pars
 from tender_scan.frameworks import extract_framework, needs_review, validate
 from tender_scan.fx import FxRates
 from tender_scan.models import Notice, format_estimated_value, parse_notice
-from tender_scan.records import FrameworkAgreement
+from tender_scan.orgnr import normalize_orgnr
+from tender_scan.records import AwardWinner, FrameworkAgreement
 from tender_scan.storage import Storage
 from tender_scan.ted_client import TedClient
+from tender_scan.winners import extract_winners, summarize
 
 app = typer.Typer(help="Monitor Swedish public procurement notices from TED.", no_args_is_help=True)
 
@@ -239,3 +241,101 @@ def frameworks_validate(
         paths = paths[:limit]
     rows, skipped = _extract_from_cache(paths, None)
     typer.echo(validate(rows, skipped).render())
+
+
+# -- winners (M2: leverantörsregister) ---------------------------------------
+
+winners_app = typer.Typer(
+    help="Extract framework award winners from notice XML.", no_args_is_help=True
+)
+app.add_typer(winners_app, name="winners")
+
+
+def _extract_winners_from_cache(
+    paths: list[Path], fx: FxRates | None, known: dict[str, str]
+) -> tuple[dict[str, list[AwardWinner]], list[tuple[str, str]]]:
+    """Winners per notice. `known` grows as orgnr are learned, so a supplier
+    identified in one notice can be matched by name in a later one."""
+    per_notice: dict[str, list[AwardWinner]] = {}
+    skipped: list[tuple[str, str]] = []
+    for path in paths:
+        notice_id = path.stem
+        try:
+            graph = parse_graph(path.read_bytes(), notice_id)
+        except (OSError, EformsError) as exc:
+            skipped.append((notice_id, str(exc)))
+            continue
+        rows = extract_winners(graph, fx=fx, known=known)
+        per_notice[notice_id] = rows
+        for row in rows:
+            if row.supplier_orgnr and row.match_confidence == 1.0:
+                known.setdefault(row.supplier_name, row.supplier_orgnr)
+    return per_notice, skipped
+
+
+@winners_app.command("extract")
+def winners_extract(
+    cache: Path = typer.Option(
+        Path(DEFAULT_CACHE_DIR), help="Directory of cached notice XML to read"
+    ),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+    limit: int | None = typer.Option(None, help="Stop after this many notices"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print what would be written"),
+) -> None:
+    """Read cached notice XML into the award_winners table."""
+    paths = _xml_files(cache)
+    if limit is not None:
+        paths = paths[:limit]
+
+    if dry_run:
+        per_notice, skipped = _extract_winners_from_cache(paths, None, {})
+        rows = [row for rows in per_notice.values() for row in rows]
+        for row in rows[:40]:
+            rank = f"#{row.rank}" if row.rank is not None else "-"
+            typer.echo(
+                f"{row.notice_id:14} {row.lot_id:10} {rank:>4} "
+                f"{str(row.supplier_orgnr or '-'):13} {_truncate(row.supplier_name, 40)}"
+            )
+        typer.echo(summarize(rows, len(per_notice), skipped).render())
+        typer.echo("Nothing was written.")
+        return
+
+    with Storage(db) as storage:
+        known = {
+            row.supplier_name: row.supplier_orgnr
+            for row in storage.list_winners()
+            if row.supplier_orgnr
+        }
+        per_notice, skipped = _extract_winners_from_cache(
+            paths, FxRates(storage.connection()), known
+        )
+        for notice_id, rows in per_notice.items():
+            storage.replace_winners(notice_id, rows)
+    all_rows = [row for rows in per_notice.values() for row in rows]
+    for notice_id, reason in skipped:
+        typer.echo(f"skipped {notice_id}: {reason}", err=True)
+    typer.echo(summarize(all_rows, len(per_notice), skipped).render())
+
+
+@winners_app.command("list")
+def winners_list(
+    notice: str | None = typer.Option(None, help="Only this notice id"),
+    orgnr: str | None = typer.Option(None, help="Only this supplier orgnr (NNNNNN-NNNN)"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Print stored award winners."""
+    wanted = normalize_orgnr(orgnr) if orgnr else None
+    if orgnr and wanted is None:
+        raise typer.BadParameter(f"{orgnr} is not a valid organisationsnummer")
+    with Storage(db) as storage:
+        rows = storage.list_winners(notice)
+    if wanted is not None:
+        rows = [row for row in rows if row.supplier_orgnr == wanted]
+    for row in rows:
+        rank = f"#{row.rank}" if row.rank is not None else "-"
+        value = f"{row.awarded_value_sek:,}".replace(",", "\x20") if row.awarded_value_sek else "-"
+        typer.echo(
+            f"{row.notice_id:14} {row.lot_id:10} {rank:>4} {value:>16} "
+            f"{str(row.supplier_orgnr or '-'):13} {_truncate(row.supplier_name, 40)}"
+        )
+    typer.echo(f"{len(rows)} rader.")

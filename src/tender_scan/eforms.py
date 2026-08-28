@@ -24,6 +24,7 @@ currency conversion, belongs to the caller.
 
 from __future__ import annotations
 
+import html
 import os
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator
@@ -51,6 +52,19 @@ def local_name(tag: str) -> str:
     return tag.split("}")[-1]
 
 
+def name_text(el: ET.Element | None) -> str | None:
+    """Text of a human-readable name, with TED's double-encoded entities undone.
+
+    TED publishes `Ernst &amp;amp; Young Aktiebolag` — the ampersand is escaped
+    twice, so one XML decode leaves a literal `&amp;` in the name. That reaches
+    a report as-is and, worse, stops the name matching a supplier ledger. 10 of
+    the 137 cached notices are affected. Applied only to names: amounts, dates
+    and ids have no entities to undo and must not be touched.
+    """
+    text = text_of(el)
+    return html.unescape(text) if text else text
+
+
 def text_of(el: ET.Element | None) -> str | None:
     text = (el.text or "").strip() if el is not None else ""
     return text or None
@@ -61,6 +75,10 @@ def first(root: ET.Element | None, name: str) -> ET.Element | None:
     if root is None:
         return None
     return next((el for el in root.iter() if local_name(el.tag) == name), None)
+
+
+def first_name_text(root: ET.Element | None, name: str) -> str | None:
+    return name_text(first(root, name))
 
 
 def first_text(root: ET.Element | None, name: str) -> str | None:
@@ -202,7 +220,7 @@ class NoticeGraph:
         for result in self.lot_results:
             if result.lot_id != lot_id:
                 continue
-            for tender_id, contract_id in self._tenders_of(result):
+            for tender_id, contract_id in self.tenders_of(result):
                 tender = self.lot_tenders.get(tender_id)
                 if tender is None or tender.lot_id not in (None, lot_id):
                     continue  # one contract may settle tenders across several lots
@@ -214,7 +232,7 @@ class NoticeGraph:
                 winners.append((org, contract_id))
         return tuple(winners)
 
-    def _tenders_of(self, result: LotResult) -> Iterator[tuple[str, str | None]]:
+    def tenders_of(self, result: LotResult) -> Iterator[tuple[str, str | None]]:
         """Tender ids of one LotResult, each with the contract that settled it."""
         settled: set[str] = set()
         for contract_id in result.settled_contract_ids:
@@ -242,7 +260,7 @@ def _organization(org: ET.Element) -> Organization | None:
     address = first(org, "PostalAddress")
     return Organization(
         org_id=org_id,
-        name=first_text(first(org, "PartyName"), "Name"),
+        name=first_name_text(first(org, "PartyName"), "Name"),
         # CompanyID carries schemeID="002" in some notices and no attribute in
         # others, so the attribute is never part of the selector.
         company_id=first_text(org, "CompanyID"),
@@ -259,7 +277,7 @@ def _lot(el: ET.Element) -> Lot | None:
     period = first(project, "PlannedPeriod")
     return Lot(
         lot_id=lot_id,
-        name=first_text(project, "Name"),
+        name=first_name_text(project, "Name"),
         estimated_value=amount(first(project, "EstimatedOverallContractAmount")),
         framework_maximum=amount(first(project, "FrameworkMaximumAmount")),
         framework_type=coded_text(el, "ContractingSystemTypeCode", "framework-agreement"),
@@ -322,7 +340,7 @@ def _settled_contract(el: ET.Element) -> SettledContract | None:
     return SettledContract(
         contract_id=contract_id,
         award_date=date_part(text_of(child(el, "AwardDate"))),
-        title=text_of(child(el, "Title")),
+        title=name_text(child(el, "Title")),
         lot_tender_ids=_stub_ids(el, "LotTender"),
     )
 
@@ -384,7 +402,7 @@ def parse_graph(xml_bytes: bytes, notice_id: str) -> NoticeGraph:
         # Direct child only: SettledContract carries its own IssueDate deeper in
         # the extension, and that one is the contract's date, not the notice's.
         issue_date=date_part(text_of(child(root, "IssueDate"))),
-        title=first_text(project, "Name"),
+        title=first_name_text(project, "Name"),
         cpv_main=first_text(
             first(project, "MainCommodityClassification"), "ItemClassificationCode"
         ),
