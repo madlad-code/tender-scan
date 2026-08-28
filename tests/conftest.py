@@ -21,3 +21,39 @@ def eforms_path() -> Path:
 @pytest.fixture
 def eforms_xml(eforms_path: Path) -> bytes:
     return eforms_path.read_bytes()
+
+
+@pytest.fixture
+def eforms_1884() -> bytes:
+    """Single-lot framework: ceiling 3 000 000 SEK, per-lot ceiling 1 500 000."""
+    return (FIXTURES / "eforms_1884-2026.xml").read_bytes()
+
+
+@pytest.fixture
+def eforms_15840() -> bytes:
+    """Three lots with ceilings 8M/8M/14M; the notice-level ceiling (8M) disagrees."""
+    return (FIXTURES / "eforms_15840-2026.xml").read_bytes()
+
+
+@pytest.fixture
+def eforms_8020() -> bytes:
+    """Framework with no ceiling published — only an approximate value of 28 000 000."""
+    return (FIXTURES / "eforms_8020-2026.xml").read_bytes()
+
+
+@pytest.fixture
+def ecb_csv() -> str:
+    """Recorded ECB daily SEK/EUR reference rates, 2026-06-29 .. 2026-07-06."""
+    return (FIXTURES / "ecb_sek_eur.csv").read_text(encoding="utf-8")
+
+
+@pytest.fixture
+def eforms_431354() -> bytes:
+    """Three structured ceilings that disagree: overall 4M, lot max 4M, framework max 8M."""
+    return (FIXTURES / "eforms_431354-2026.xml").read_bytes()
+
+
+@pytest.fixture
+def eforms_470310() -> bytes:
+    """Ranked framework: RankCode 1, one tender with PayableAmount 0 (value undisclosed)."""
+    return (FIXTURES / "eforms_470310-2026.xml").read_bytes()
