@@ -37,8 +37,22 @@ src/tender_scan/
 ├── models.py       # Notice dataclass + parser for TED's multilingual eForms fields
 ├── storage.py      # SQLite persistence (idempotent upsert keyed on publication number)
 ├── report.py       # eForms XML → framework agreement report (ceiling, forecast, call-offs)
-├── cli.py          # typer CLI: scan, list, rapport, serve
+├── cli.py          # typer CLI: scan, list, rapport, serve + the utilization commands below
 └── web.py          # read-only web view, standard library only
+
+# The utilization modules, built on top of the pipeline above rather than into it
+├── money.py        # amount normalization ("4,5 mkr" → 4500000) and ceiling phrases in prose
+├── fx.py           # dated EUR→SEK via the ECB daily reference rates, cached, never hardcoded
+├── orgnr.py        # organisationsnummer: one spelling, Luhn-checked
+├── eforms.py       # notice XML → a resolved graph (lots, results, tenders, winners, buyers)
+├── records.py      # row types for the v5 tables
+├── frameworks.py   # M1: takvolym extraction with a documented reconciliation rule
+├── winners.py      # M2: every supplier awarded a place, per lot, with rank
+├── payments/       # M4: one loader per open supplier ledger (VGR, Göteborg, Västerås)
+├── utilization.py  # M5: the utilization view and the report
+├── prospects.py    # M6: suppliers sitting on several frameworks
+├── foia.py         # M3: offentlighetsprincipen requests and their deadlines
+└── logging_setup.py
 ```
 
 Data flow: `ted_client` yields raw notices → `models.parse_notice` flattens them (picks English/Swedish text, all lots with value and currency, earliest lot deadline normalized to UTC ISO-8601) → `storage` upserts into SQLite, keeping the full raw JSON for later analysis.
@@ -46,6 +60,65 @@ Data flow: `ted_client` yields raw notices → `models.parse_notice` flattens th
 Values are stored numerically (`estimated_value REAL` + `currency TEXT`) and summed across lots when they share a currency. Databases written by earlier versions — where the value was text (`"18000000 SEK"`) and deadlines used TED's mixed zone formats — are migrated automatically on first open: a `<db>.bak` copy is written first, then rows are re-parsed from their stored raw JSON so the migration applies the same rules as a fresh scan.
 
 `report.py` is independent of the database: it reads a notice's eForms XML straight from TED.
+
+## Utnyttjandegrad — ceiling vs actual call-offs
+
+The question the whole thing exists to answer: **how much of a framework
+agreement's ceiling has actually been called off?** One number,
+`utnyttjandegrad = observed call-offs / takvolym`, with everything needed to
+say how much of it you can actually see.
+
+```bash
+# 1. Ceilings, from each notice's own eForms fields, into framework_agreements
+tender-scan frameworks extract --cache data/xml_cache
+tender-scan frameworks review          # the manual queue: no ceiling, or weak evidence
+tender-scan frameworks validate --cache data/xml_cache   # hit rate per cap_source
+
+# 2. Every supplier awarded a place, per lot, with rank where published
+tender-scan winners extract --cache data/xml_cache
+tender-scan winners list --orgnr 556599-4307
+
+# 3. Actual payments, from the buyers who publish their supplier ledger
+tender-scan payments sources
+tender-scan payments load goteborg --url https://catalog.goteborg.se/store/6/resource/129628
+
+# 4. The answer
+tender-scan utilization --measurable    # every framework, one line each
+tender-scan report 109559-2026          # the full report for one, markdown or --format html
+
+# 5. Who to talk to: suppliers sitting on two or more frameworks
+tender-scan prospects --cpv 72000000 --min-frameworks 2 --out prospects.csv
+
+# 6. For buyers who publish nothing: a records request, and its deadlines
+tender-scan foia new --framework 109559-2026 --org "Sundsvalls kommun"
+tender-scan foia sent 1                 # you send it yourself; this starts the clock
+tender-scan foia due                    # day 3 reminder, day 5 call, day 10 written decision
+tender-scan foia ingest 1 svar.csv
+```
+
+Every command takes `--db` and, where it writes, `--dry-run`.
+
+### What the numbers mean, and what they do not
+
+A utilization rate is **never** printed without its coverage ratio, in any
+output. With payment data for one buyer of sixteen, or one month of
+forty-seven, the figure is a lower bound, not a measurement — and the report
+says so next to every percentage, under its own **Metodbegränsningar** heading.
+
+Three rules that decide whether a figure is honest:
+
+- **A payment only counts if the payer is a buyer the notice names.** Another
+  authority paying the same supplier is not a call-off on this agreement.
+- **A payment only counts if it falls inside the agreement's term.**
+- **The ceiling and the estimate never share a column.** Where only a forecast
+  is published, `cap_value_sek` is NULL and the report says the ceiling is
+  unknown rather than dividing by a guess.
+
+Measured against 137 real Swedish CPV-72 framework notices: a ceiling is
+published in a structured eForms field for 94 of them and stated in prose for
+one more, so 95 of 137 (69 %) get a ceiling and the remaining 42 go to the
+manual review queue. Those 137 notices carry 1 771 award rows across 460
+distinct suppliers, 99.5 % of them with a Luhn-valid organisationsnummer.
 
 ## Quickstart
 
@@ -141,8 +214,8 @@ No secrets are needed — the TED search endpoints are public.
 
 ## Roadmap
 
-- **Call-off data without manual entry** — call-offs are typed in by hand today (`--avrop`); next is wiring in the Swedish Procurement Agency's open statistics and tracking received records requests per agreement
-- **Reports straight from the database** — `rapport` currently goes to TED per notice ID rather than reading stored notices; connecting the two allows watching several frameworks at once
+- **More buyers with open ledgers** — three are wired up (VGR, Göteborg, Västerås). Ale, Umeå, Södertälje, Trollhättan, Lidingö and DIGG publish the same shape and are the obvious next ones; each new buyer raises the coverage ratio, which is the number that decides whether a report is worth selling
+- **Ingest FOIA answers into `supplier_payments`** — `foia ingest` links the file today; parsing it into rows with `source='foia'` is the missing step
 - **PDF output** — markdown and HTML exist; a customer-ready PDF does not
 - **Document autofill** — pre-fill recurring tender response documents from a supplier profile
 - **n8n webhook integration** — push new matching notices to n8n workflows for alerting and downstream automation
