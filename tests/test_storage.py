@@ -404,6 +404,14 @@ def test_list_frameworks_needs_review_boundary_and_null_cap(tmp_path):
     assert review_ids == ["b-2026", "c-2026"]  # 0.7 exactly is not under review
 
 
+def test_a_cap_with_no_confidence_is_in_the_review_queue(tmp_path):
+    """An unexplained cap is exactly what a human has to look at."""
+    with Storage(tmp_path / "test.db") as storage:
+        storage.upsert_framework(make_framework(notice_id="e-2026", cap_confidence=None))
+        review_ids = [fw.notice_id for fw in storage.list_frameworks(needs_review=True)]
+    assert review_ids == ["e-2026"]
+
+
 # -- award winners ----------------------------------------------------------
 
 

@@ -1,8 +1,11 @@
+from pathlib import Path
+
 import httpx
 from typer.testing import CliRunner
 
 from tender_scan import cli
 from tender_scan.cli import app
+from tender_scan.storage import Storage
 from tender_scan.ted_client import TedClient
 
 runner = CliRunner()
@@ -127,3 +130,78 @@ def test_rapport_reports_missing_xml_file(tmp_path):
     result = runner.invoke(app, ["rapport", "1-2026", "--xml", str(tmp_path / "nope.xml")])
 
     assert result.exit_code != 0
+
+
+# -- frameworks (M1) ---------------------------------------------------------
+
+
+def _corpus(tmp_path: Path) -> Path:
+    """A small cache directory built from the committed fixtures."""
+    cache = tmp_path / "xml"
+    cache.mkdir()
+    for notice_id in ("1884-2026", "15840-2026", "8020-2026"):
+        source = Path(__file__).parent / "fixtures" / f"eforms_{notice_id}.xml"
+        (cache / f"{notice_id}.xml").write_bytes(source.read_bytes())
+    return cache
+
+
+def test_frameworks_extract_writes_rows(tmp_path: Path) -> None:
+    db = tmp_path / "t.sqlite3"
+    result = CliRunner().invoke(
+        app, ["frameworks", "extract", "--cache", str(_corpus(tmp_path)), "--db", str(db)]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Wrote 3 framework rows" in result.output
+    with Storage(db) as storage:
+        rows = {row.notice_id: row for row in storage.list_frameworks()}
+    assert rows["1884-2026"].cap_value_sek == 3_000_000
+    assert rows["8020-2026"].cap_value_sek is None
+
+
+def test_frameworks_extract_dry_run_writes_nothing(tmp_path: Path) -> None:
+    db = tmp_path / "t.sqlite3"
+    result = CliRunner().invoke(
+        app,
+        [
+            "frameworks",
+            "extract",
+            "--cache",
+            str(_corpus(tmp_path)),
+            "--db",
+            str(db),
+            "--dry-run",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Nothing was written" in result.output
+    with Storage(db) as storage:
+        assert storage.list_frameworks() == []
+
+
+def test_frameworks_extract_skips_an_unreadable_file(tmp_path: Path) -> None:
+    cache = _corpus(tmp_path)
+    (cache / "broken-2026.xml").write_bytes(b"<not-xml")
+    db = tmp_path / "t.sqlite3"
+    result = CliRunner().invoke(
+        app, ["frameworks", "extract", "--cache", str(cache), "--db", str(db)]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Wrote 3 framework rows (1 skipped)" in result.output
+
+
+def test_frameworks_review_lists_the_queue(tmp_path: Path) -> None:
+    db = tmp_path / "t.sqlite3"
+    runner = CliRunner()
+    runner.invoke(
+        app, ["frameworks", "extract", "--cache", str(_corpus(tmp_path)), "--db", str(db)]
+    )
+    result = runner.invoke(app, ["frameworks", "review", "--db", str(db)])
+    assert result.exit_code == 0, result.output
+    assert "8020-2026" in result.output
+    assert "1884-2026" not in result.output
+
+
+def test_frameworks_validate_prints_the_denominator(tmp_path: Path) -> None:
+    result = CliRunner().invoke(app, ["frameworks", "validate", "--cache", str(_corpus(tmp_path))])
+    assert result.exit_code == 0, result.output
+    assert "2 av 3" in result.output

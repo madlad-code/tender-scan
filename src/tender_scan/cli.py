@@ -7,7 +7,11 @@ from pathlib import Path
 import typer
 
 from tender_scan import report as report_module
+from tender_scan.eforms import DEFAULT_CACHE_DIR, EformsError, notice_text, parse_graph
+from tender_scan.frameworks import extract_framework, needs_review, validate
+from tender_scan.fx import FxRates
 from tender_scan.models import Notice, format_estimated_value, parse_notice
+from tender_scan.records import FrameworkAgreement
 from tender_scan.storage import Storage
 from tender_scan.ted_client import TedClient
 
@@ -138,3 +142,100 @@ def serve(
 
 if __name__ == "__main__":
     app()
+
+
+# -- frameworks (M1: takvolymsextraktion) ------------------------------------
+
+frameworks_app = typer.Typer(
+    help="Extract framework ceilings (takvolym) from notice XML.", no_args_is_help=True
+)
+app.add_typer(frameworks_app, name="frameworks")
+
+
+def _xml_files(cache: Path) -> list[Path]:
+    if not cache.is_dir():
+        raise typer.BadParameter(f"{cache} is not a directory")
+    return sorted(cache.glob("*.xml"))
+
+
+def _extract_from_cache(
+    paths: list[Path], fx: FxRates | None
+) -> tuple[list[FrameworkAgreement], list[tuple[str, str]]]:
+    """Read each cached XML into a row. Never fetches; a bad file is skipped, not fatal."""
+    rows: list[FrameworkAgreement] = []
+    skipped: list[tuple[str, str]] = []
+    for path in paths:
+        notice_id = path.stem
+        try:
+            xml_bytes = path.read_bytes()
+            graph = parse_graph(xml_bytes, notice_id)
+        except (OSError, EformsError) as exc:
+            skipped.append((notice_id, str(exc)))
+            continue
+        rows.append(extract_framework(graph, fx=fx, text=notice_text(xml_bytes)))
+    return rows, skipped
+
+
+@frameworks_app.command("extract")
+def frameworks_extract(
+    cache: Path = typer.Option(
+        Path(DEFAULT_CACHE_DIR), help="Directory of cached notice XML to read"
+    ),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+    limit: int | None = typer.Option(None, help="Stop after this many notices"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print what would be written"),
+) -> None:
+    """Read cached notice XML into the framework_agreements table."""
+    paths = _xml_files(cache)
+    if limit is not None:
+        paths = paths[:limit]
+
+    if dry_run:
+        # No database, so no FX cache either: an unconvertible amount is reported
+        # as such rather than silently converted with an invented rate.
+        rows, skipped = _extract_from_cache(paths, None)
+        for row in rows:
+            cap = f"{row.cap_value_sek:,}".replace(",", " ") if row.cap_value_sek else "-"
+            typer.echo(f"{row.notice_id:14} {cap:>16}  {_truncate(row.title, 60)}")
+        typer.echo(f"Would write {len(rows)} rows ({len(skipped)} skipped). Nothing was written.")
+        return
+
+    with Storage(db) as storage:
+        rows, skipped = _extract_from_cache(paths, FxRates(storage.connection()))
+        for row in rows:
+            storage.upsert_framework(row)
+    for notice_id, reason in skipped:
+        typer.echo(f"skipped {notice_id}: {reason}", err=True)
+    typer.echo(f"Wrote {len(rows)} framework rows ({len(skipped)} skipped).")
+
+
+@frameworks_app.command("review")
+def frameworks_review(
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Print the manual review queue: no ceiling, or one found on weak evidence."""
+    with Storage(db) as storage:
+        rows = [row for row in storage.list_frameworks() if needs_review(row)]
+    if not rows:
+        typer.echo("Granskningskön är tom.")
+        return
+    for row in rows:
+        cap = f"{row.cap_value_sek:,}".replace(",", " ") if row.cap_value_sek else "inget tak"
+        confidence = f"{row.cap_confidence:.2f}" if row.cap_confidence is not None else "-"
+        typer.echo(f"{row.notice_id:14} {cap:>16}  konfidens {confidence}")
+        typer.echo(f"  {_truncate(row.buyer_name, 40)} — {_truncate(row.title, 70)}")
+        typer.echo(f"  {row.raw_excerpt or '-'}")
+    typer.echo(f"\n{len(rows)} rader i granskningskön.")
+
+
+@frameworks_app.command("validate")
+def frameworks_validate(
+    cache: Path = typer.Option(..., help="Directory of cached notice XML to validate against"),
+    limit: int | None = typer.Option(None, help="Stop after this many notices"),
+) -> None:
+    """Report the ceiling hit rate per cap_source over a corpus of cached XML."""
+    paths = _xml_files(cache)
+    if limit is not None:
+        paths = paths[:limit]
+    rows, skipped = _extract_from_cache(paths, None)
+    typer.echo(validate(rows, skipped).render())

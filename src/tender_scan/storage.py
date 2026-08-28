@@ -317,15 +317,17 @@ class Storage:
     def list_frameworks(self, needs_review: bool = False) -> list[FrameworkAgreement]:
         """All framework rows, or only the ones a human still has to look at.
 
-        A row needs review when the cap is missing outright or when it was
-        extracted with weak evidence. A NULL confidence next to a present cap
-        is not flagged: that combination means the cap came from an eForms
-        field, where there is nothing to be unsure about.
+        A row needs review when the cap is missing outright, when it was
+        extracted with weak evidence, or when it carries no confidence at all.
+        The last case matters: the extractor always records a confidence
+        alongside a cap, so a NULL there means the row came from somewhere
+        else and is unexplained. `frameworks.needs_review` applies the same
+        rule in Python, and a test asserts the two agree.
         """
         query = "SELECT * FROM framework_agreements"
         params: tuple[Any, ...] = ()
         if needs_review:
-            query += " WHERE cap_confidence < ? OR cap_value_sek IS NULL"
+            query += " WHERE COALESCE(cap_confidence, -1) < ? OR cap_value_sek IS NULL"
             params = (REVIEW_CONFIDENCE,)
         query += " ORDER BY notice_id"
         return [_framework_from_row(row) for row in self._conn.execute(query, params)]

@@ -407,6 +407,31 @@ def parse_graph(xml_bytes: bytes, notice_id: str) -> NoticeGraph:
 # -- fetching ----------------------------------------------------------------
 
 
+# Free-text elements a Swedish buyer states the ceiling in when they do not
+# fill in the structured field. Titles are excluded: they are too short to
+# carry an amount and too easy to misread ("Ramavtal 2026-2030").
+_TEXT_TAGS = ("Description", "Note", "AdditionalInformation")
+
+
+def notice_text(xml_bytes: bytes) -> str:
+    """All prose in one notice, for the regex ceiling fallback.
+
+    The structured fields are always preferred; this exists because 43 of the
+    137 cached Swedish framework notices publish no ceiling field at all, and
+    a handful of those state it in the description instead.
+    """
+    try:
+        root = ET.fromstring(xml_bytes)
+    except ET.ParseError:
+        return ""
+    parts = [
+        el.text.strip()
+        for el in root.iter()
+        if local_name(el.tag) in _TEXT_TAGS and el.text and el.text.strip()
+    ]
+    return "\n".join(parts)
+
+
 def _cache_path(notice_id: str, cache_dir: Path | None) -> Path:
     directory = cache_dir or Path(os.environ.get("TENDER_SCAN_XML_CACHE", DEFAULT_CACHE_DIR))
     return Path(directory) / f"{notice_id}.xml"

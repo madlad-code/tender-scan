@@ -257,6 +257,7 @@ _ESTIMATE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("beraknat_varde", r"beräkna[td]\w*\s+(?:total\w*\s+)?(?:värde[t]?|belopp(?:et)?)"),
     ("preliminart_varde", r"prelimin[äa]r\w*\s+(?:värde[t]?|belopp(?:et)?)"),
     ("prognos", r"prognos(?:tiserat|en|erad\w*)?"),
+    ("bedomt_behov", r"bed[öo]m[dt]\w*\s+(?:total\w*\s+)?(?:behov(?:et)?|värde[t]?|volym(?:en)?)"),
     ("estimated_value", r"estimated\s+(?:overall\s+)?(?:value|amount|contract\s+value)"),
     ("approximate_value", r"approximate\s+(?:overall\s+)?(?:value|amount)"),
 )
