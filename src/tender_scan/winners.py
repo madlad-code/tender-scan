@@ -163,6 +163,16 @@ class _Accumulator:
     tenders: dict[str, LotTender] = field(default_factory=dict)
     contracts: set[str] = field(default_factory=set)
 
+    def award_date(self, graph: NoticeGraph) -> str | None:
+        """The latest AwardDate among the contracts that settled these tenders."""
+        dates = [
+            contract.award_date
+            for contract_id in self.contracts
+            if (contract := graph.settled_contracts.get(contract_id)) is not None
+            and contract.award_date
+        ]
+        return max(dates) if dates else None
+
 
 def _issue_date(graph: NoticeGraph) -> date | None:
     try:
@@ -254,6 +264,7 @@ def extract_winner_matches(
                     rank=_rank(accumulator.tenders),
                     awarded_value_sek=_awarded_value(accumulator.tenders, fx, on),
                     match_confidence=confidence,
+                    award_date=accumulator.award_date(graph),
                 ),
                 org_id=accumulator.org.org_id,
                 contract_ids=tuple(sorted(accumulator.contracts)),

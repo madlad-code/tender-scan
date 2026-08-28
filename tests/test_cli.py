@@ -442,3 +442,33 @@ def test_utilization_table_prints_coverage_beside_every_rate(tmp_path: Path) -> 
     row = next(line for line in result.output.splitlines() if line.startswith("1-2026"))
     assert "37.9%" in row
     assert "100.0%" in row  # the coverage column, on the same line as the rate
+
+
+# -- prospects (M6) ----------------------------------------------------------
+
+
+def test_prospects_writes_a_csv(tmp_path: Path) -> None:
+    db = tmp_path / "t.sqlite3"
+    with Storage(db) as storage:
+        for notice_id in ("1-2026", "2-2026"):
+            storage.upsert_framework(
+                FrameworkAgreement(
+                    notice_id=notice_id,
+                    title=f"Ramavtal {notice_id}",
+                    is_framework=True,
+                    cpv_main="72000000",
+                    cap_value_sek=1_000_000,
+                )
+            )
+            storage.replace_winners(
+                notice_id,
+                [AwardWinner(notice_id, "Consid AB", "556599-4307", "LOT-0000")],
+            )
+    out = tmp_path / "prospects.csv"
+    result = CliRunner().invoke(
+        app, ["prospects", "--cpv", "72*", "--db", str(db), "--out", str(out)]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Skrev 1 rader" in result.output
+    assert "Inga kontaktuppgifter" in result.output
+    assert "556599-4307" in out.read_text(encoding="utf-8")

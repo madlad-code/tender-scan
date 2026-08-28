@@ -52,6 +52,7 @@ class AwardWinner:
     rank: int | None = None
     awarded_value_sek: int | None = None
     match_confidence: float | None = None
+    award_date: str | None = None  # from the notice's SettledContract, when published
     updated_at: str | None = None
 
 

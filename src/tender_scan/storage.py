@@ -8,6 +8,8 @@ Schema versions (PRAGMA user_version):
   3   — utilization tables next to `notices`, which is left exactly as it was:
         framework_agreements, award_winners, supplier_payments, foia_requests
         and fx_rates. Purely additive, so the migration only creates tables.
+  5   — award_winners.award_date, so a prospect list can be sorted by when a
+        supplier was last awarded a place rather than by a proxy.
   4   — buyer identity, which is what keeps an unrelated payment out of a
         framework's observed spend:
           * supplier_payments.payer_orgnr — attribution by organisationsnummer
@@ -43,7 +45,7 @@ from tender_scan.records import AwardWinner, FrameworkAgreement, SupplierPayment
 
 DEFAULT_DB_PATH = "tender_scan.db"
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 _SCHEMA_V2 = """
 CREATE TABLE IF NOT EXISTS notices (
@@ -88,6 +90,7 @@ CREATE TABLE IF NOT EXISTS award_winners (
     rank              INTEGER,
     awarded_value_sek INTEGER,
     match_confidence  REAL,
+    award_date        TEXT,
     updated_at        TEXT NOT NULL,
     PRIMARY KEY (notice_id, supplier_name, lot_id)
 );
@@ -179,6 +182,7 @@ _WINNER_COLUMNS = (
     "rank",
     "awarded_value_sek",
     "match_confidence",
+    "award_date",
     "updated_at",
 )
 
@@ -256,6 +260,7 @@ class Storage:
         for table, column, ddl in (
             ("supplier_payments", "payer_orgnr", "TEXT"),
             ("framework_agreements", "buyer_is_cpb", "INTEGER NOT NULL DEFAULT 0"),
+            ("award_winners", "award_date", "TEXT"),
         ):
             columns = {row[1] for row in self._conn.execute(f"PRAGMA table_info({table})")}
             if columns and column not in columns:
@@ -551,6 +556,7 @@ def _winner_values(winner: AwardWinner) -> tuple[Any, ...]:
         winner.rank,
         winner.awarded_value_sek,
         winner.match_confidence,
+        winner.award_date,
         winner.updated_at or _utc_now(),
     )
 
@@ -564,6 +570,7 @@ def _winner_from_row(row: sqlite3.Row) -> AwardWinner:
         rank=row["rank"],
         awarded_value_sek=row["awarded_value_sek"],
         match_confidence=row["match_confidence"],
+        award_date=row["award_date"],
         updated_at=row["updated_at"],
     )
 

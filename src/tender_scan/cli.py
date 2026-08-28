@@ -6,8 +6,8 @@ from pathlib import Path
 
 import typer
 
+from tender_scan import prospects, utilization
 from tender_scan import report as report_module
-from tender_scan import utilization
 from tender_scan.eforms import DEFAULT_CACHE_DIR, EformsError, notice_text, parse_graph
 from tender_scan.frameworks import extract_framework, named_buyers, needs_review, validate
 from tender_scan.fx import FxRates
@@ -508,3 +508,31 @@ def utilization_table(
             f"{_truncate(row.buyer_name, 34)}"
         )
     typer.echo(f"{len(rows)} ramavtal.")
+
+
+# -- prospects (M6) ----------------------------------------------------------
+
+
+@app.command("prospects")
+def prospects_command(
+    cpv: str | None = typer.Option(None, help="CPV code or wildcard prefix, e.g. 72000000 or 72*"),
+    min_frameworks: int = typer.Option(
+        prospects.DEFAULT_MIN_FRAMEWORKS,
+        "--min-frameworks",
+        help="Only suppliers on at least this many framework agreements",
+    ),
+    out: Path | None = typer.Option(None, help="Write CSV here instead of stdout"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Export suppliers who sit on several framework agreements, company level only."""
+    with Storage(db) as storage:
+        found = prospects.find(storage.connection(), cpv=cpv, min_frameworks=min_frameworks)
+    csv_text = prospects.to_csv(found)
+    if out is not None:
+        out.write_text(csv_text, encoding="utf-8")
+        typer.echo(f"Skrev {len(found)} rader till {out}")
+        typer.echo(
+            "Listan är på bolagsnivå. Inga kontaktuppgifter hämtas automatiskt från tredje part."
+        )
+    else:
+        typer.echo(csv_text, nl=False)
