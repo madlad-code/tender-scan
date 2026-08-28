@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import typer
 
-from tender_scan import prospects, utilization
+from tender_scan import foia, prospects, utilization
 from tender_scan import report as report_module
 from tender_scan.eforms import DEFAULT_CACHE_DIR, EformsError, notice_text, parse_graph
 from tender_scan.frameworks import extract_framework, named_buyers, needs_review, validate
@@ -15,7 +16,7 @@ from tender_scan.models import Notice, format_estimated_value, parse_notice
 from tender_scan.orgnr import normalize_orgnr
 from tender_scan.payments import LOADERS, SourceFile, http_fetch, to_payments
 from tender_scan.payments.base import WinnerIndex
-from tender_scan.records import AwardWinner, FrameworkAgreement
+from tender_scan.records import AwardWinner, FoiaRequest, FrameworkAgreement
 from tender_scan.storage import Storage
 from tender_scan.ted_client import TedClient
 from tender_scan.winners import extract_winners, summarize
@@ -536,3 +537,153 @@ def prospects_command(
         )
     else:
         typer.echo(csv_text, nl=False)
+
+
+# -- foia (M3: begäran om allmän handling) ------------------------------------
+
+foia_app = typer.Typer(
+    help="Track requests for call-off data under offentlighetsprincipen.",
+    no_args_is_help=True,
+)
+app.add_typer(foia_app, name="foia")
+
+DEFAULT_FOIA_DIR = Path("foia")
+
+
+@foia_app.command("new")
+def foia_new(
+    framework: str | None = typer.Option(None, help="TED notice id the request is about"),
+    org: str = typer.Option(..., help="Authority to address the request to"),
+    email: str | None = typer.Option(None, help="Registrator address, for your own records"),
+    out_dir: Path = typer.Option(DEFAULT_FOIA_DIR, help="Where to write the draft"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print the draft and log nothing"),
+) -> None:
+    """Draft a request and log it. Nothing is sent — you send it yourself."""
+    with Storage(db) as storage:
+        row = storage.get_framework(framework) if framework else None
+        if framework and row is None:
+            typer.echo(f"{framework} finns inte i databasen — skriver ändå utkast.", err=True)
+        suppliers = [w.supplier_name for w in storage.list_winners(framework)] if framework else []
+        text = foia.render_request(row, org, suppliers)
+
+        if dry_run:
+            typer.echo(text)
+            typer.echo("--- Inget loggades och ingenting skickades. ---")
+            return
+
+        request_id = storage.insert_foia(
+            FoiaRequest(
+                id=None,
+                target_org=org,
+                target_email=email,
+                framework_notice_id=framework,
+                status=foia.STATUS_DRAFT,
+            )
+        )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"{request_id:04d}-{foia.slug(org)}.txt"
+    path.write_text(text, encoding="utf-8")
+    typer.echo(f"Utkast #{request_id} skrivet till {path}")
+    typer.echo(
+        "Läs igenom, fyll i namn och kontaktuppgifter, och skicka själv. "
+        f"Registrera sedan avsändningen med: tender-scan foia sent {request_id}"
+    )
+
+
+@foia_app.command("sent")
+def foia_sent(
+    request_id: int = typer.Argument(..., help="Request id"),
+    on: str | None = typer.Option(None, help="Date it was sent (YYYY-MM-DD, default today)"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Record that you have sent the request, which starts the deadline clock."""
+    when = on or datetime.now(UTC).date().isoformat()
+    with Storage(db) as storage:
+        if storage.get_foia(request_id) is None:
+            typer.echo(f"Ingen begäran med id {request_id}.", err=True)
+            raise typer.Exit(1)
+        storage.update_foia(request_id, sent_at=when, status=foia.STATUS_SENT)
+    typer.echo(f"#{request_id} markerad som skickad {when}.")
+
+
+@foia_app.command("did")
+def foia_did(
+    request_id: int = typer.Argument(..., help="Request id"),
+    step: str = typer.Argument(..., help="reminder_1 | reminder_2 | decision_requested"),
+    on: str | None = typer.Option(None, help="Date it was done (YYYY-MM-DD, default today)"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Record that a chase step has been done, so `foia due` stops listing it."""
+    column = f"{step}_at"
+    if column not in {s.column for s in foia.SCHEDULE}:
+        raise typer.BadParameter(
+            "step must be one of: " + ", ".join(s.column.removesuffix("_at") for s in foia.SCHEDULE)
+        )
+    when = on or datetime.now(UTC).date().isoformat()
+    with Storage(db) as storage:
+        if storage.get_foia(request_id) is None:
+            typer.echo(f"Ingen begäran med id {request_id}.", err=True)
+            raise typer.Exit(1)
+        storage.update_foia(request_id, **{column: when})
+    typer.echo(f"#{request_id}: {step} registrerad {when}.")
+
+
+@foia_app.command("due")
+def foia_due(
+    today: str | None = typer.Option(None, help="Treat this as today's date (YYYY-MM-DD)"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """List the chase steps that have come due."""
+    when = date.fromisoformat(today) if today else None
+    with Storage(db) as storage:
+        actions = foia.due_actions(storage.list_foia(), today=when)
+    for action in actions:
+        typer.echo(action.render())
+    typer.echo(f"{len(actions)} åtgärd(er) att göra." if actions else "Inget att göra.")
+
+
+@foia_app.command("list")
+def foia_list(
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Print every logged request."""
+    with Storage(db) as storage:
+        rows = storage.list_foia()
+    for row in rows:
+        typer.echo(
+            f"#{row.id:<4} {row.status:9} {str(row.sent_at or '-'):12} "
+            f"{str(row.framework_notice_id or '-'):14} {_truncate(row.target_org, 40)}"
+        )
+    typer.echo(f"{len(rows)} begäran/begäranden.")
+
+
+@foia_app.command("ingest")
+def foia_ingest(
+    request_id: int = typer.Argument(..., help="Request id"),
+    path: Path = typer.Argument(..., help="The file the authority sent back"),
+    refused: bool = typer.Option(False, "--refused", help="The authority refused the request"),
+    on: str | None = typer.Option(None, help="Date received (YYYY-MM-DD, default today)"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Link an incoming file to a request and close its clock."""
+    if not path.exists():
+        raise typer.BadParameter(f"{path} finns inte")
+    when = on or datetime.now(UTC).date().isoformat()
+    with Storage(db) as storage:
+        if storage.get_foia(request_id) is None:
+            typer.echo(f"Ingen begäran med id {request_id}.", err=True)
+            raise typer.Exit(1)
+        storage.update_foia(
+            request_id,
+            response_received_at=when,
+            response_file_path=str(path.resolve()),
+            status=foia.STATUS_REFUSED if refused else foia.STATUS_RECEIVED,
+        )
+    typer.echo(f"#{request_id}: {path} registrerad {when}.")
+    if not refused:
+        typer.echo(
+            "Nästa steg: läs in beloppen i supplier_payments (source='foia') så att "
+            "de räknas in i utnyttjandegraden."
+        )

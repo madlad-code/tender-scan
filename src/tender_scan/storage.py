@@ -41,7 +41,7 @@ from typing import Any
 
 from tender_scan.models import Lot, Notice, normalize_deadline, parse_lots, parse_notice
 from tender_scan.orgnr import normalize_orgnr
-from tender_scan.records import AwardWinner, FrameworkAgreement, SupplierPayment
+from tender_scan.records import AwardWinner, FoiaRequest, FrameworkAgreement, SupplierPayment
 
 DEFAULT_DB_PATH = "tender_scan.db"
 
@@ -184,6 +184,20 @@ _WINNER_COLUMNS = (
     "match_confidence",
     "award_date",
     "updated_at",
+)
+
+_FOIA_COLUMNS = (
+    "target_org",
+    "target_email",
+    "framework_notice_id",
+    "sent_at",
+    "reminder_1_at",
+    "reminder_2_at",
+    "decision_requested_at",
+    "status",
+    "response_received_at",
+    "response_file_path",
+    "notes",
 )
 
 _PAYMENT_COLUMNS = (
@@ -433,6 +447,48 @@ class Storage:
         query += " ORDER BY notice_id, lot_id, supplier_name"
         return [_winner_from_row(row) for row in self._conn.execute(query, params)]
 
+    # -- foia requests ------------------------------------------------------
+
+    def insert_foia(self, request: FoiaRequest) -> int:
+        """Log a new request and return its id."""
+        columns = ", ".join(_FOIA_COLUMNS)
+        placeholders = ", ".join("?" for _ in _FOIA_COLUMNS)
+        with self._conn:
+            cursor = self._conn.execute(
+                f"INSERT INTO foia_requests ({columns}) VALUES ({placeholders})",
+                _foia_values(request),
+            )
+        return int(cursor.lastrowid or 0)
+
+    def update_foia(self, request_id: int, **fields: object) -> None:
+        """Update named columns of one request. Unknown columns are rejected."""
+        unknown = set(fields) - set(_FOIA_COLUMNS)
+        if unknown:
+            raise ValueError(f"unknown foia_requests columns: {sorted(unknown)}")
+        if not fields:
+            return
+        assignments = ", ".join(f"{column} = ?" for column in fields)
+        with self._conn:
+            self._conn.execute(
+                f"UPDATE foia_requests SET {assignments} WHERE id = ?",
+                (*fields.values(), request_id),
+            )
+
+    def get_foia(self, request_id: int) -> FoiaRequest | None:
+        row = self._conn.execute(
+            "SELECT * FROM foia_requests WHERE id = ?", (request_id,)
+        ).fetchone()
+        return _foia_from_row(row) if row is not None else None
+
+    def list_foia(self, status: str | None = None) -> list[FoiaRequest]:
+        query = "SELECT * FROM foia_requests"
+        params: tuple[Any, ...] = ()
+        if status is not None:
+            query += " WHERE status = ?"
+            params = (status,)
+        query += " ORDER BY id"
+        return [_foia_from_row(row) for row in self._conn.execute(query, params)]
+
     # -- supplier payments -------------------------------------------------
 
     def insert_payments(self, payments: Iterable[SupplierPayment]) -> int:
@@ -572,6 +628,39 @@ def _winner_from_row(row: sqlite3.Row) -> AwardWinner:
         match_confidence=row["match_confidence"],
         award_date=row["award_date"],
         updated_at=row["updated_at"],
+    )
+
+
+def _foia_values(request: FoiaRequest) -> tuple[Any, ...]:
+    return (
+        request.target_org,
+        request.target_email,
+        request.framework_notice_id,
+        request.sent_at,
+        request.reminder_1_at,
+        request.reminder_2_at,
+        request.decision_requested_at,
+        request.status,
+        request.response_received_at,
+        request.response_file_path,
+        request.notes,
+    )
+
+
+def _foia_from_row(row: sqlite3.Row) -> FoiaRequest:
+    return FoiaRequest(
+        id=row["id"],
+        target_org=row["target_org"],
+        target_email=row["target_email"],
+        framework_notice_id=row["framework_notice_id"],
+        status=row["status"],
+        sent_at=row["sent_at"],
+        reminder_1_at=row["reminder_1_at"],
+        reminder_2_at=row["reminder_2_at"],
+        decision_requested_at=row["decision_requested_at"],
+        response_received_at=row["response_received_at"],
+        response_file_path=row["response_file_path"],
+        notes=row["notes"],
     )
 
 

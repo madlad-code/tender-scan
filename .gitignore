@@ -10,3 +10,6 @@ build/
 .ruff_cache/
 data/
 .netlify/
+
+# Drafted requests carry the sender's name and the authorities being contacted.
+foia/

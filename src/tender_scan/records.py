@@ -71,3 +71,25 @@ class SupplierPayment:
     source_url: str | None = None
     row_hash: str | None = None  # storage computes it via payment_row_hash when None
     ingested_at: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class FoiaRequest:
+    """One begäran om allmän handling, and where it has got to.
+
+    Dispatch is manual by design, so the timestamps are recorded when the user
+    says the step happened — this module never sends anything itself.
+    """
+
+    id: int | None
+    target_org: str
+    target_email: str | None
+    framework_notice_id: str | None
+    status: str
+    sent_at: str | None = None
+    reminder_1_at: str | None = None
+    reminder_2_at: str | None = None
+    decision_requested_at: str | None = None
+    response_received_at: str | None = None
+    response_file_path: str | None = None
+    notes: str | None = None

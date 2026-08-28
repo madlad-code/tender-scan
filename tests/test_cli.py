@@ -5,7 +5,12 @@ from typer.testing import CliRunner
 
 from tender_scan import cli
 from tender_scan.cli import app
-from tender_scan.records import AwardWinner, FrameworkAgreement, SupplierPayment
+from tender_scan.records import (
+    AwardWinner,
+    FoiaRequest,
+    FrameworkAgreement,
+    SupplierPayment,
+)
 from tender_scan.storage import Storage
 from tender_scan.ted_client import TedClient
 
@@ -472,3 +477,100 @@ def test_prospects_writes_a_csv(tmp_path: Path) -> None:
     assert "Skrev 1 rader" in result.output
     assert "Inga kontaktuppgifter" in result.output
     assert "556599-4307" in out.read_text(encoding="utf-8")
+
+
+# -- foia (M3) ---------------------------------------------------------------
+
+
+def _foia_db(tmp_path: Path) -> Path:
+    db = tmp_path / "t.sqlite3"
+    with Storage(db) as storage:
+        storage.insert_foia(
+            FoiaRequest(
+                id=None,
+                target_org="Sundsvalls kommun",
+                target_email=None,
+                framework_notice_id="1-2026",
+                status="draft",
+            )
+        )
+    return db
+
+
+def test_foia_sent_starts_the_clock_and_due_then_lists_the_reminder(tmp_path: Path) -> None:
+    db = _foia_db(tmp_path)
+    runner = CliRunner()
+    assert (
+        runner.invoke(app, ["foia", "sent", "1", "--on", "2026-08-01", "--db", str(db)]).exit_code
+        == 0
+    )
+    before = runner.invoke(app, ["foia", "due", "--today", "2026-08-02", "--db", str(db)])
+    after = runner.invoke(app, ["foia", "due", "--today", "2026-08-05", "--db", str(db)])
+    assert "Inget att göra" in before.output
+    assert "påminnelse" in after.output
+
+
+def test_foia_did_removes_a_step_from_the_due_list(tmp_path: Path) -> None:
+    db = _foia_db(tmp_path)
+    runner = CliRunner()
+    runner.invoke(app, ["foia", "sent", "1", "--on", "2026-08-01", "--db", str(db)])
+    runner.invoke(app, ["foia", "did", "1", "reminder_1", "--on", "2026-08-04", "--db", str(db)])
+    # Sent 2026-08-01, so the day-5 phone call comes due on 2026-08-06.
+    result = runner.invoke(app, ["foia", "due", "--today", "2026-08-06", "--db", str(db)])
+    assert "Ring registratorn" in result.output
+
+
+def test_foia_did_rejects_an_unknown_step(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app, ["foia", "did", "1", "skickabrev", "--db", str(_foia_db(tmp_path))]
+    )
+    assert result.exit_code != 0
+    assert "step must be one of" in result.output
+
+
+def test_foia_ingest_links_the_file_and_closes_the_clock(tmp_path: Path) -> None:
+    db = _foia_db(tmp_path)
+    answer = tmp_path / "svar.csv"
+    answer.write_text("leverantor;belopp\n", encoding="utf-8")
+    runner = CliRunner()
+    runner.invoke(app, ["foia", "sent", "1", "--on", "2026-08-01", "--db", str(db)])
+    result = runner.invoke(app, ["foia", "ingest", "1", str(answer), "--db", str(db)])
+    assert result.exit_code == 0, result.output
+    assert "supplier_payments" in result.output
+    with Storage(db) as storage:
+        row = storage.get_foia(1)
+    assert row is not None and row.status == "received"
+    assert row.response_file_path == str(answer.resolve())
+    due = runner.invoke(app, ["foia", "due", "--today", "2026-09-01", "--db", str(db)])
+    assert "Inget att göra" in due.output
+
+
+def test_foia_ingest_rejects_a_missing_file(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app, ["foia", "ingest", "1", str(tmp_path / "nope.csv"), "--db", str(_foia_db(tmp_path))]
+    )
+    assert result.exit_code != 0
+
+
+def test_foia_commands_reject_an_unknown_id(tmp_path: Path) -> None:
+    db = tmp_path / "empty.sqlite3"
+    result = CliRunner().invoke(app, ["foia", "sent", "42", "--db", str(db)])
+    assert result.exit_code == 1
+    assert "Ingen begäran med id 42" in result.output
+
+
+def test_foia_new_dry_run_logs_nothing(tmp_path: Path) -> None:
+    db = tmp_path / "t.sqlite3"
+    result = CliRunner().invoke(
+        app, ["foia", "new", "--org", "Helsingborgs stad", "--db", str(db), "--dry-run"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Inget loggades och ingenting skickades" in result.output
+    with Storage(db) as storage:
+        assert storage.list_foia() == []
+
+
+def test_foia_list_prints_every_request(tmp_path: Path) -> None:
+    result = CliRunner().invoke(app, ["foia", "list", "--db", str(_foia_db(tmp_path))])
+    assert result.exit_code == 0, result.output
+    assert "Sundsvalls kommun" in result.output
