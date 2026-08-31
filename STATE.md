@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-08-31 20:51 UTC._
+_Genererad 2026-08-31 20:52 UTC._
 
 ## Planen och kontakterna
 
@@ -57,11 +57,12 @@ Allt annat — säljmejl, samtal, möten — skrivs för hand här._
 ## Kod
 
 - Gren: `main`
-- **13 commits opushade** till `origin/main`
-- Arbetsträd: 2 ändrade filer
+- Synkad med `origin/main`
+- Arbetsträd: rent
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `9a6db60` | 2026-08-31 | fix(state): only rewrite STATE.md when something actually changed |
 | `dbe1ea3` | 2026-08-31 | feat(m3): import a hand-kept outreach sheet, and a status for a half-answer |
 | `ec3d335` | 2026-08-31 | docs(state): record that Remote Control is how the web reaches this project |
 | `08e38a6` | 2026-08-31 | feat(state): STATE.md, regenerated at every session start |
@@ -69,13 +70,12 @@ Allt annat — säljmejl, samtal, möten — skrivs för hand här._
 | `5bb4996` | 2026-08-28 | chore: stop tracking the runtime log |
 | `561c6df` | 2026-08-28 | docs: document the utilization modules and what their numbers mean |
 | `c3702aa` | 2026-08-28 | feat(m3): FOIA case handler for call-off data requests |
-| `cf6479f` | 2026-08-28 | feat(m6): prospect list of suppliers on several framework agreements |
 
 ## Vad som kör
 
 | Container | Status | Image |
 | --- | --- | --- |
-| `tender-scan-app-1` | Up 3 minutes | `tender-scan-app` |
+| `tender-scan-app-1` | Up 4 minutes | `tender-scan-app` |
 | `tender-scan-tailscale-1` | Up 2 hours | `tailscale/tailscale:latest` |
 
 - Image `tender-scan-app` byggd: 2026-08-31 22:47:20 UTC
