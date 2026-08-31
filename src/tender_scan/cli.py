@@ -644,6 +644,68 @@ def foia_due(
     typer.echo(f"{len(actions)} åtgärd(er) att göra." if actions else "Inget att göra.")
 
 
+@foia_app.command("import")
+def foia_import(
+    path: Path = typer.Argument(..., help="Outreach sheet (CSV) to read"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Report what would change, write nothing"
+    ),
+) -> None:
+    """Sync a hand-kept outreach sheet into the request log.
+
+    Matches on the authority's name, so re-running after editing the sheet
+    updates the existing rows instead of logging the same request twice.
+    """
+    try:
+        rows = foia.read_outreach(path.read_text(encoding="utf-8"))
+    except foia.LedgerError as err:
+        typer.echo(f"Kan inte läsa {path}: {err}", err=True)
+        raise typer.Exit(code=1) from err
+
+    added = updated = unchanged = 0
+    with Storage(db) as storage:
+        existing = {row.target_org.strip().lower(): row for row in storage.list_foia()}
+        for row in rows:
+            current = existing.get(row.target_org.strip().lower())
+            if current is None:
+                if not dry_run:
+                    storage.insert_foia(row)
+                added += 1
+                typer.echo(f"+ {row.target_org} ({row.status})")
+                continue
+            changes = {
+                field: getattr(row, field)
+                for field in _FOIA_SYNCED
+                if getattr(row, field) != getattr(current, field)
+            }
+            if not changes:
+                unchanged += 1
+                continue
+            if not dry_run:
+                storage.update_foia(current.id, **changes)
+            updated += 1
+            typer.echo(f"~ {row.target_org}: {', '.join(sorted(changes))}")
+
+    verb = "skulle läggas till" if dry_run else "tillagda"
+    typer.echo(f"\n{added} {verb}, {updated} uppdaterade, {unchanged} oförändrade.")
+    if not dry_run:
+        typer.echo("Kör `tender-scan foia due` för att se vad som förfallit.")
+
+
+# Columns the sheet owns. `framework_notice_id`, `response_file_path` and the
+# day-5 phone call are set from the tool and must survive a re-import.
+_FOIA_SYNCED = (
+    "target_email",
+    "status",
+    "sent_at",
+    "reminder_1_at",
+    "decision_requested_at",
+    "response_received_at",
+    "notes",
+)
+
+
 @foia_app.command("list")
 def foia_list(
     db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),

@@ -574,3 +574,70 @@ def test_foia_list_prints_every_request(tmp_path: Path) -> None:
     result = CliRunner().invoke(app, ["foia", "list", "--db", str(_foia_db(tmp_path))])
     assert result.exit_code == 0, result.output
     assert "Sundsvalls kommun" in result.output
+
+
+LEDGER_CSV = (
+    "﻿kommun,epost,batch,status,skickat_datum,paminnelse_datum,"
+    "eskalering_datum,svar_datum,anteckning\n"
+    "Göteborgs stad,sled@goteborg.se,1,skickad,2026-08-31,,,,\n"
+    "Huddinge kommun,sc@huddinge.se,1,levererat_delvis,2026-08-31,,,,bara 2025\n"
+)
+
+
+def test_foia_import_syncs_a_sheet_and_reruns_without_duplicating(tmp_path):
+    db = str(tmp_path / "t.db")
+    sheet = tmp_path / "batch1.csv"
+    sheet.write_text(LEDGER_CSV, encoding="utf-8")
+
+    first = runner.invoke(app, ["foia", "import", str(sheet), "--db", db])
+    assert first.exit_code == 0, first.output
+    assert "2 tillagda" in first.output
+
+    # Re-running an unchanged sheet must not log the same request twice.
+    again = runner.invoke(app, ["foia", "import", str(sheet), "--db", db])
+    assert again.exit_code == 0, again.output
+    assert "0 tillagda, 0 uppdaterade, 2 oförändrade" in again.output
+
+    with Storage(db) as storage:
+        rows = storage.list_foia()
+    assert [r.target_org for r in rows] == ["Göteborgs stad", "Huddinge kommun"]
+    assert rows[1].status == "partial"
+
+
+def test_foia_import_updates_a_changed_row_in_place(tmp_path):
+    db = str(tmp_path / "t.db")
+    sheet = tmp_path / "batch1.csv"
+    sheet.write_text(LEDGER_CSV, encoding="utf-8")
+    runner.invoke(app, ["foia", "import", str(sheet), "--db", db])
+
+    sheet.write_text(LEDGER_CSV.replace("skickad", "levererat"), encoding="utf-8")
+    result = runner.invoke(app, ["foia", "import", str(sheet), "--db", db])
+
+    assert result.exit_code == 0, result.output
+    assert "1 uppdaterade" in result.output
+    with Storage(db) as storage:
+        assert storage.list_foia()[0].status == "received"
+
+
+def test_foia_import_dry_run_writes_nothing(tmp_path):
+    db = str(tmp_path / "t.db")
+    sheet = tmp_path / "batch1.csv"
+    sheet.write_text(LEDGER_CSV, encoding="utf-8")
+
+    result = runner.invoke(app, ["foia", "import", str(sheet), "--db", db, "--dry-run"])
+
+    assert result.exit_code == 0, result.output
+    assert "skulle läggas till" in result.output
+    with Storage(db) as storage:
+        assert storage.list_foia() == []
+
+
+def test_foia_import_reports_a_bad_sheet_without_a_traceback(tmp_path):
+    db = str(tmp_path / "t.db")
+    sheet = tmp_path / "bad.csv"
+    sheet.write_text(LEDGER_CSV.replace("2026-08-31", "03-04-26", 1), encoding="utf-8")
+
+    result = runner.invoke(app, ["foia", "import", str(sheet), "--db", db])
+
+    assert result.exit_code == 1
+    assert "Traceback" not in result.output

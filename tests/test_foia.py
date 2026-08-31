@@ -16,10 +16,13 @@ import pytest
 from tender_scan.foia import (
     SCHEDULE,
     STATUS_DRAFT,
+    STATUS_PARTIAL,
     STATUS_RECEIVED,
     STATUS_REFUSED,
     STATUS_SENT,
+    LedgerError,
     due_actions,
+    read_outreach,
     render_request,
     slug,
 )
@@ -255,3 +258,86 @@ def test_the_cli_draft_command_writes_a_file_and_sends_nothing(tmp_path: Path) -
     assert "tryckfrihetsförordningen" in written[0].read_text(encoding="utf-8")
     with Storage(db) as storage:
         assert [r.status for r in storage.list_foia()] == [STATUS_DRAFT]
+
+
+# -- the outreach ledger -----------------------------------------------------
+
+LEDGER = (
+    "kommun,epost,storleksklass,batch,status,skickat_datum,"
+    "paminnelse_datum,eskalering_datum,svar_datum,anteckning\n"
+    "Göteborgs stad,sled@goteborg.se,stor,1,skickad,2026-08-31,,,,\n"
+    "Huddinge kommun,sc@huddinge.se,stor,1,levererat_delvis,2026-08-31,,,,bara 2025\n"
+)
+
+
+def test_read_outreach_maps_columns_statuses_and_ignores_extra_columns():
+    rows = read_outreach(LEDGER)
+
+    assert [r.target_org for r in rows] == ["Göteborgs stad", "Huddinge kommun"]
+    assert rows[0].target_email == "sled@goteborg.se"
+    assert rows[0].status == STATUS_SENT
+    assert rows[0].sent_at == "2026-08-31"
+    assert rows[1].status == STATUS_PARTIAL
+    assert rows[1].notes == "bara 2025"
+    # The day-5 phone call has no column in a sheet, so it is never invented.
+    assert all(r.reminder_2_at is None for r in rows)
+
+
+def test_read_outreach_survives_what_a_spreadsheet_does_to_a_file():
+    """A BOM on the first header, a row truncated to its last non-empty cell."""
+    text = "﻿" + LEDGER + "Grästorps kommun,k@grastorp.se,liten,1,skickad,2026-08-31\n"
+    rows = read_outreach(text)
+
+    assert len(rows) == 3
+    assert rows[0].target_org == "Göteborgs stad"  # BOM did not enter the name
+    assert rows[2].target_org == "Grästorps kommun"
+    assert rows[2].reminder_1_at is None  # the missing tail is empty, not broken
+
+
+def test_read_outreach_skips_trailing_blank_lines():
+    assert len(read_outreach(LEDGER + ",,,,,,,,,\n")) == 2
+
+
+def test_read_outreach_refuses_an_ambiguous_date_rather_than_guessing():
+    """`03-04-26` is March 4th or April 3rd; a wrong guess misdates a reminder."""
+    bad = LEDGER.replace("2026-08-31,,,,\n", "03-04-26,,,,\n", 1)
+    with pytest.raises(LedgerError) as err:
+        read_outreach(bad)
+
+    assert "03-04-26" in str(err.value)
+    assert "ÅÅÅÅ-MM-DD" in str(err.value)
+
+
+def test_read_outreach_refuses_an_unknown_status():
+    with pytest.raises(LedgerError, match="okänd status"):
+        read_outreach(LEDGER.replace("skickad", "kanske", 1))
+
+
+def test_read_outreach_needs_an_organisation_column():
+    with pytest.raises(LedgerError, match="no organisation column"):
+        read_outreach("epost,status\na@b.se,skickad\n")
+
+
+def test_partial_delivery_still_gets_chased():
+    """An authority that sent half the data has answered without delivering."""
+    partial = FoiaRequest(
+        id=1,
+        target_org="Huddinge kommun",
+        target_email=None,
+        framework_notice_id=None,
+        status=STATUS_PARTIAL,
+        sent_at="2026-08-31",
+    )
+    settled = FoiaRequest(
+        id=2,
+        target_org="Lund",
+        target_email=None,
+        framework_notice_id=None,
+        status=STATUS_RECEIVED,
+        sent_at="2026-08-31",
+    )
+
+    due = due_actions([partial, settled], today=date(2026, 9, 6))
+
+    assert [action.request.id for action in due] == [1]
+    assert due[0].step.day == 3  # the reminder is still the earliest step owed

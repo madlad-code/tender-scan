@@ -92,9 +92,16 @@ tender-scan prospects --cpv 72000000 --min-frameworks 2 --out prospects.csv
 # 6. For buyers who publish nothing: a records request, and its deadlines
 tender-scan foia new --framework 109559-2026 --org "Sundsvalls kommun"
 tender-scan foia sent 1                 # you send it yourself; this starts the clock
+tender-scan foia import batch1.csv      # or sync a whole outreach sheet at once
 tender-scan foia due                    # day 3 reminder, day 5 call, day 10 written decision
 tender-scan foia ingest 1 svar.csv
 ```
+
+Batch outreach gets tracked in a spreadsheet first, because a spreadsheet is what you reach for when sending twenty emails on a Tuesday. That is a fine working surface and a useless clock: nothing in a sheet tells you that Huddinge is on day 6 and owes you a phone call. `foia import` syncs the sheet into `foia_requests`, matching on the authority's name so re-running after an edit updates rows rather than logging the same request twice.
+
+The reader tolerates what a spreadsheet does to a file — a UTF-8 BOM on the first header, rows truncated to the last non-empty cell — and refuses anything that needs a guess. **Dates must be ISO-8601**: `03-04-26` is March 4th or April 3rd depending on a convention the file does not record, and silently picking one puts a reminder on the wrong day.
+
+A sheet's `levererat_delvis` maps to the status `partial`, which is deliberately *not* settled. An authority that sent one year of three has answered without delivering; treating that as done is how the missing half gets forgotten, so the clock keeps running and `foia due` keeps listing it.
 
 Every command takes `--db` and, where it writes, `--dry-run`.
 

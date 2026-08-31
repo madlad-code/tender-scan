@@ -168,8 +168,7 @@ def docker_section() -> str:
         lines.append("")
         lines.append(f"- Image `tender-scan-app` byggd: {built[:19].replace('T', ' ')} UTC")
         lines.append(
-            "- Byggs **inte** om av sig själv. Efter en kodändring: "
-            "`docker compose up -d --build`."
+            "- Byggs **inte** om av sig själv. Efter en kodändring: `docker compose up -d --build`."
         )
     lines.append(
         "- Nås bara över tailnet: **http://tender-scan:8000**. "
@@ -206,8 +205,7 @@ def data_section() -> str:
     lines = ["| Tabell | Rader | Vad |", "| --- | --- | --- |"]
     with conn:
         present = {
-            row[0]
-            for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
         for table, what in TABLES:
             if table not in present:
@@ -242,7 +240,7 @@ def foia_section() -> str:
             "- Inga begäranden registrerade. Tabellen finns och har fälten för "
             "hela klockan (`sent_at`, `reminder_1_at`, `reminder_2_at`, "
             "`decision_requested_at`) — den används bara inte ännu.\n"
-            "- Registrera ett: `tender-scan foia new --framework <notis> --org \"<myndighet>\"`, "
+            '- Registrera ett: `tender-scan foia new --framework <notis> --org "<myndighet>"`, '
             "och `tender-scan foia sent <id>` när du faktiskt skickat det."
         )
 
