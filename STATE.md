@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-08-31 19:37 UTC._
+_Genererad 2026-08-31 19:52 UTC._
 
 ## Planen och kontakterna
 
@@ -35,16 +35,26 @@ Allt annat — säljmejl, samtal, möten — skrivs för hand här._
 | Datum | Vem | Vad | Status |
 | --- | --- | --- | --- |
 | – | – | Inget loggat ännu | – |
+### Hur projektet nås
+
+- **Terminalen och webben delar samma session.** Remote Control är påslaget för
+  det här projektet (`remoteControlAtStartup` i `.claude/settings.local.json`,
+  personlig och ocommittad). En session som startas här går att styra från
+  claude.ai/code och Claude-appen — samma session, inte en kopia, så
+  webbläsaren ser den här databasen, den här dockern och den här filen.
+- **Priset:** den här maskinen måste vara igång med en session. Sover den finns
+  ingenting att fjärrstyra.
 <!-- MANUELLT:SLUT -->
 
 ## Kod
 
 - Gren: `main`
-- **10 commits opushade** till `origin/main`
-- Arbetsträd: 5 ändrade filer
+- **11 commits opushade** till `origin/main`
+- Arbetsträd: 1 ändrad fil
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `08e38a6` | 2026-08-31 | feat(state): STATE.md, regenerated at every session start |
 | `8b6acd5` | 2026-08-31 | feat(web): dashboard, per-framework report and prospect pages |
 | `5bb4996` | 2026-08-28 | chore: stop tracking the runtime log |
 | `561c6df` | 2026-08-28 | docs: document the utilization modules and what their numbers mean |
@@ -52,16 +62,15 @@ Allt annat — säljmejl, samtal, möten — skrivs för hand här._
 | `cf6479f` | 2026-08-28 | feat(m6): prospect list of suppliers on several framework agreements |
 | `929b691` | 2026-08-28 | feat(m5): utilization view and report, with coverage attached to every rate |
 | `1a2df39` | 2026-08-28 | feat(m4): open supplier-ledger loaders for VGR, Göteborg and Västerås |
-| `a12c3a6` | 2026-08-28 | feat(m2): extract all framework award winners into award_winners |
 
 ## Vad som kör
 
 | Container | Status | Image |
 | --- | --- | --- |
-| `tender-scan-app-1` | Up 31 minutes | `tender-scan-app` |
-| `tender-scan-tailscale-1` | Up 31 minutes | `tailscale/tailscale:latest` |
+| `tender-scan-app-1` | Up 13 minutes | `tender-scan-app` |
+| `tender-scan-tailscale-1` | Up 46 minutes | `tailscale/tailscale:latest` |
 
-- Image `tender-scan-app` byggd: 2026-08-31 21:05:58 UTC
+- Image `tender-scan-app` byggd: 2026-08-31 21:38:15 UTC
 - Byggs **inte** om av sig själv. Efter en kodändring: `docker compose up -d --build`.
 - Nås bara över tailnet: **http://tender-scan:8000**. `localhost:8000` är avsiktligt stängt (`network_mode: service:tailscale`).
 
