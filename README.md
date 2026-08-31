@@ -38,7 +38,7 @@ src/tender_scan/
 ├── storage.py      # SQLite persistence (idempotent upsert keyed on publication number)
 ├── report.py       # eForms XML → framework agreement report (ceiling, forecast, call-offs)
 ├── cli.py          # typer CLI: scan, list, rapport, serve + the utilization commands below
-└── web.py          # read-only web view, standard library only
+└── web.py          # read-only web view (dashboard, report, prospects), stdlib only
 
 # The utilization modules, built on top of the pipeline above rather than into it
 ├── money.py        # amount normalization ("4,5 mkr" → 4500000) and ceiling phrases in prose
@@ -175,7 +175,16 @@ The XML parser matches elements by local name and ignores namespaces, so it tole
 tender-scan serve --port 8000
 ```
 
-Serves a read-only, mobile-friendly page listing stored notices. No auth — meant for private networks only (localhost or a Tailscale tailnet), never public exposure.
+Serves a read-only, mobile-friendly site. No auth — meant for private networks only (localhost or a Tailscale tailnet), never public exposure.
+
+| Path | What it shows |
+| --- | --- |
+| `/` | The utilisation dashboard: every framework agreement with its ceiling, observed spend, both utilisation rates and both coverage figures, largest observed spend first |
+| `/ramavtal/<notice_id>` | The full M5 report for one agreement — the same text `tender-scan utnyttjandegrad rapport` prints, rendered by the same function so the two cannot drift apart |
+| `/prospekt` | Suppliers sitting on several framework agreements (M6) |
+| `/notiser` | The stored notice list |
+
+The dashboard obeys M5's rule that `utilization_rate` is never shown without `coverage_ratio`. In a table the caveat cannot travel as a paragraph, so every row carries its own coverage cells and a test asserts that no row renders a rate without them — a reader who sorts by "Grad" and stops reading has still seen how much of the picture is missing.
 
 ## Docker + Tailscale (access from your phone)
 

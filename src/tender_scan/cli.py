@@ -135,7 +135,7 @@ def serve(
     port: int = typer.Option(8000, help="Port"),
     db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
 ) -> None:
-    """Serve stored notices as a web page (read-only, for private networks)."""
+    """Serve the utilisation dashboard, reports and prospects (read-only)."""
     from tender_scan.web import serve as make_server
 
     server = make_server(host, port, db)
