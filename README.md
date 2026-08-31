@@ -138,8 +138,7 @@ Requires Python 3.12+.
 
 ```bash
 git clone <repo-url> && cd tender-scan
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+bash scripts/setup.sh   # picks a 3.12+ interpreter, installs, reports what the clone lacks
 cp .env.example .env   # optional: defaults work out of the box
 
 # Fetch Swedish IT notices (CPV 72*) published in the last 30 days

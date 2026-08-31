@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-08-31 22:46 UTC._
+_Genererad 2026-08-31 23:01 UTC._
 
 ## Planen och kontakterna
 
@@ -85,16 +85,29 @@ Uppdraget, för den session som läser detta:
 Känt sedan tidigare: användaren uppger bekräftelser från "typ alla", och
 material bara från Huddinge (delvis). Det är **inte** verifierat mot inkorgen —
 verifiera det, ändra inte på det.
+### Om du kör i en molncontainer
+
+Kör `bash scripts/setup.sh` först. Den väljer en Python 3.12+ (obs: `python3`
+är PyPy 3.11 på ägarens maskin), installerar CLI:t och listar vad klonen
+saknar. Databasen och `~/Desktop/OUTREACH/` följer **aldrig** med — de är
+gitignorerade med flit. Det är väntat, inte ett fel.
+
+Du kan alltså läsa och skriva kod och köra hela testsviten härifrån, men inte
+ändra det verkliga ärendeläget. Behöver du det: skriv ett skript som kör
+`tender-scan foia ...`, **committa och pusha det**, och låt den lokala
+sessionen köra det. Ett skript som bara ligger i containern försvinner när
+sessionen tar slut.
 <!-- MANUELLT:SLUT -->
 
 ## Kod
 
 - Gren: `main`
 - Synkad med `origin/main`
-- Arbetsträd: 1 ändrad fil
+- Arbetsträd: 3 ändrade filer
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `128b1e1` | 2026-09-01 | docs(state): hand off the Gmail triage of batch 1 to the next session |
 | `816268b` | 2026-09-01 | feat(m3): foia note, for what no other field captures |
 | `d1ffebb` | 2026-08-31 | feat(state): warn when the running image predates the code |
 | `260087a` | 2026-08-31 | chore(state): refresh |
@@ -102,7 +115,6 @@ verifiera det, ändra inte på det.
 | `181ff4b` | 2026-08-31 | chore(state): refresh after push |
 | `9a6db60` | 2026-08-31 | fix(state): only rewrite STATE.md when something actually changed |
 | `dbe1ea3` | 2026-08-31 | feat(m3): import a hand-kept outreach sheet, and a status for a half-answer |
-| `ec3d335` | 2026-08-31 | docs(state): record that Remote Control is how the web reaches this project |
 
 ## Vad som kör
 
@@ -112,7 +124,7 @@ verifiera det, ändra inte på det.
 | `tender-scan-tailscale-1` | Up 4 hours | `tailscale/tailscale:latest` |
 
 - Image `tender-scan-app` byggd: 2026-08-31 23:33:04 UTC
-- ⚠️ **Imagen är 48 min äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
+- ⚠️ **Imagen är 1 h äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
 - Nås bara över tailnet: **http://tender-scan:8000**. `localhost:8000` är avsiktligt stängt (`network_mode: service:tailscale`).
 
 ## Vad databasen innehåller
