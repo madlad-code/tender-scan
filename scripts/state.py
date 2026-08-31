@@ -325,6 +325,24 @@ def build() -> str:
     )
 
 
+_GENERATED_LINE = re.compile(r"^_Genererad .*$", re.MULTILINE)
+
+
+def _current() -> str:
+    return STATE.read_text(encoding="utf-8") if STATE.exists() else ""
+
+
+def _substance(text: str) -> str:
+    """The file without its own timestamp.
+
+    The hook runs at every session start, so writing unconditionally would
+    restamp the file each time and leave the working tree permanently dirty
+    with a diff that says nothing. Comparing on substance means the file is
+    rewritten only when something about the project actually changed.
+    """
+    return _GENERATED_LINE.sub("", text)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--print", dest="show", action="store_true", help="print after writing")
@@ -332,7 +350,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     text = build()
-    if not args.check:
+    if not args.check and _substance(text) != _substance(_current()):
         STATE.write_text(text, encoding="utf-8")
     if args.show or args.check:
         sys.stdout.write(text)
