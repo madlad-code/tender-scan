@@ -167,14 +167,50 @@ def docker_section() -> str:
     if built:
         lines.append("")
         lines.append(f"- Image `tender-scan-app` byggd: {built[:19].replace('T', ' ')} UTC")
-        lines.append(
-            "- Byggs **inte** om av sig själv. Efter en kodändring: `docker compose up -d --build`."
-        )
+        lines.append(_image_drift(built))
     lines.append(
         "- Nås bara över tailnet: **http://tender-scan:8000**. "
         "`localhost:8000` är avsiktligt stängt (`network_mode: service:tailscale`)."
     )
     return "\n".join(lines)
+
+
+_REBUILD_HINT = (
+    "- Byggs **inte** om av sig själv. Efter en kodändring: `docker compose up -d --build`."
+)
+
+
+def _image_drift(built: str) -> str:
+    """Whether the running image predates the code in the working tree.
+
+    This is the failure that already happened once: the container served a
+    three-week-old build and returned 500 on every request, while the fix sat
+    in the source the whole time. `docker compose up -d --build` is easy to
+    forget precisely because nothing complains — the container keeps running,
+    just not the code you wrote. So the file does the remembering.
+    """
+    head = run("git", "log", "-1", "--format=%cI")
+    if not (head and built):
+        return _REBUILD_HINT
+    try:
+        image_at = datetime.fromisoformat(built.replace("Z", "+00:00"))
+        commit_at = datetime.fromisoformat(head)
+    except ValueError:
+        return _REBUILD_HINT
+    if image_at >= commit_at:
+        return "- Image är nyare än senaste commit — containern kör aktuell kod."
+    stale = commit_at - image_at
+    minutes = int(stale.total_seconds() // 60)
+    if stale.days:
+        age = f"{stale.days} dygn"
+    elif minutes >= 60:
+        age = f"{minutes // 60} h"
+    else:
+        age = f"{minutes} min"
+    return (
+        f"- ⚠️ **Imagen är {age} äldre än senaste commit — containern kör gammal kod.** "
+        "Kör `docker compose up -d --build`."
+    )
 
 
 TABLES = (

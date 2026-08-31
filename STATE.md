@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-08-31 21:15 UTC._
+_Genererad 2026-08-31 21:33 UTC._
 
 ## Planen och kontakterna
 
@@ -58,10 +58,11 @@ Allt annat — säljmejl, samtal, möten — skrivs för hand här._
 
 - Gren: `main`
 - Synkad med `origin/main`
-- Arbetsträd: rent
+- Arbetsträd: 2 ändrade filer
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `260087a` | 2026-08-31 | chore(state): refresh |
 | `269d539` | 2026-08-31 | fix(ci): put the repo root on sys.path for bare pytest |
 | `181ff4b` | 2026-08-31 | chore(state): refresh after push |
 | `9a6db60` | 2026-08-31 | fix(state): only rewrite STATE.md when something actually changed |
@@ -69,17 +70,16 @@ Allt annat — säljmejl, samtal, möten — skrivs för hand här._
 | `ec3d335` | 2026-08-31 | docs(state): record that Remote Control is how the web reaches this project |
 | `08e38a6` | 2026-08-31 | feat(state): STATE.md, regenerated at every session start |
 | `8b6acd5` | 2026-08-31 | feat(web): dashboard, per-framework report and prospect pages |
-| `5bb4996` | 2026-08-28 | chore: stop tracking the runtime log |
 
 ## Vad som kör
 
 | Container | Status | Image |
 | --- | --- | --- |
-| `tender-scan-app-1` | Up 27 minutes | `tender-scan-app` |
+| `tender-scan-app-1` | Up Less than a second | `tender-scan-app` |
 | `tender-scan-tailscale-1` | Up 2 hours | `tailscale/tailscale:latest` |
 
-- Image `tender-scan-app` byggd: 2026-08-31 22:47:20 UTC
-- Byggs **inte** om av sig själv. Efter en kodändring: `docker compose up -d --build`.
+- Image `tender-scan-app` byggd: 2026-08-31 23:33:04 UTC
+- Image är nyare än senaste commit — containern kör aktuell kod.
 - Nås bara över tailnet: **http://tender-scan:8000**. `localhost:8000` är avsiktligt stängt (`network_mode: service:tailscale`).
 
 ## Vad databasen innehåller
