@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-08-31 22:21 UTC._
+_Genererad 2026-08-31 22:46 UTC._
 
 ## Planen och kontakterna
 
@@ -62,16 +62,40 @@ Allt annat — säljmejl, samtal, möten — skrivs för hand här._
   schemalagd agent. `foia due` *listar* vad som förfallit när du kör den.
   `send_batch.py` skickar bara när du själv kör den med `--live`. Inga mejl
   lämnar maskinen utan att du startat det.
+### NÄSTA JOBB: läs Gmail, registrera svaren på batch 1
+
+Gmail-kopplingen är aktiv (`claude mcp list` → Connected), men verktygen
+registreras vid **sessionsstart** — sessionen som skickade batch 1 tappade dem
+mitt i och kunde inte läsa inkorgen. En ny session har dem.
+
+Uppdraget, för den session som läser detta:
+
+1. Sök i Gmail efter svar på de 20 begärandena, skickade **2026-08-31**, ämne
+   *"Begäran om utlämnande av allmän handling – avtalskatalog och
+   leverantörsreskontra"*. Mottagarna står i `foia_requests` (`foia list`).
+2. Avgör per kommun vad svaret faktiskt är:
+   - bara mottagningsbekräftelse → `tender-scan foia note <id> "..."`
+     (status ska **stå kvar** som `sent`, klockan fortsätter gå)
+   - bifogade handlingar → spara filen, `tender-scan foia ingest <id> <fil>`
+   - avslag → `tender-scan foia ingest <id> <fil> --refused`
+   - avgift begärd → `foia note` med beloppet, betala inte automatiskt
+3. Hitta inte på. Registrera bara det som står i ett faktiskt mejl, med
+   diarienummer och datum där det finns.
+
+Känt sedan tidigare: användaren uppger bekräftelser från "typ alla", och
+material bara från Huddinge (delvis). Det är **inte** verifierat mot inkorgen —
+verifiera det, ändra inte på det.
 <!-- MANUELLT:SLUT -->
 
 ## Kod
 
 - Gren: `main`
 - Synkad med `origin/main`
-- Arbetsträd: 4 ändrade filer
+- Arbetsträd: 1 ändrad fil
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `816268b` | 2026-09-01 | feat(m3): foia note, for what no other field captures |
 | `d1ffebb` | 2026-08-31 | feat(state): warn when the running image predates the code |
 | `260087a` | 2026-08-31 | chore(state): refresh |
 | `269d539` | 2026-08-31 | fix(ci): put the repo root on sys.path for bare pytest |
@@ -79,17 +103,16 @@ Allt annat — säljmejl, samtal, möten — skrivs för hand här._
 | `9a6db60` | 2026-08-31 | fix(state): only rewrite STATE.md when something actually changed |
 | `dbe1ea3` | 2026-08-31 | feat(m3): import a hand-kept outreach sheet, and a status for a half-answer |
 | `ec3d335` | 2026-08-31 | docs(state): record that Remote Control is how the web reaches this project |
-| `08e38a6` | 2026-08-31 | feat(state): STATE.md, regenerated at every session start |
 
 ## Vad som kör
 
 | Container | Status | Image |
 | --- | --- | --- |
-| `tender-scan-app-1` | Up 48 minutes | `tender-scan-app` |
-| `tender-scan-tailscale-1` | Up 3 hours | `tailscale/tailscale:latest` |
+| `tender-scan-app-1` | Up About an hour | `tender-scan-app` |
+| `tender-scan-tailscale-1` | Up 4 hours | `tailscale/tailscale:latest` |
 
 - Image `tender-scan-app` byggd: 2026-08-31 23:33:04 UTC
-- ⚠️ **Imagen är 0 min äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
+- ⚠️ **Imagen är 48 min äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
 - Nås bara över tailnet: **http://tender-scan:8000**. `localhost:8000` är avsiktligt stängt (`network_mode: service:tailscale`).
 
 ## Vad databasen innehåller
