@@ -94,8 +94,13 @@ tender-scan foia new --framework 109559-2026 --org "Sundsvalls kommun"
 tender-scan foia sent 1                 # you send it yourself; this starts the clock
 tender-scan foia import batch1.csv      # or sync a whole outreach sheet at once
 tender-scan foia due                    # day 3 reminder, day 5 call, day 10 written decision
+tender-scan foia note 1 "bekräftelse mottagen, diarienr KS-2026-123"
 tender-scan foia ingest 1 svar.csv
 ```
+
+`foia_requests` is the record of truth for where each request stands — `foia due` reads it and nothing else. A sheet is an input to it via `foia import`, never a parallel copy of it.
+
+`foia note` records what no other field captures. The common case is an acknowledgement: almost every registrator replies "vi har mottagit din begäran" long before a document arrives. That does not settle the request, so the status stays `sent` and the clock keeps running — but it is worth keeping, because it is the proof of receipt an escalation rests on, and because a silent authority and one that acknowledged then went quiet call for different wording in the reminder.
 
 Batch outreach gets tracked in a spreadsheet first, because a spreadsheet is what you reach for when sending twenty emails on a Tuesday. That is a fine working surface and a useless clock: nothing in a sheet tells you that Huddinge is on day 6 and owes you a phone call. `foia import` syncs the sheet into `foia_requests`, matching on the authority's name so re-running after an edit updates rows rather than logging the same request twice.
 

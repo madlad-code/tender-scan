@@ -630,6 +630,34 @@ def foia_did(
     typer.echo(f"#{request_id}: {step} registrerad {when}.")
 
 
+@foia_app.command("note")
+def foia_note(
+    request_id: int = typer.Argument(..., help="Request id"),
+    text: str = typer.Argument(..., help="What happened, in your own words"),
+    replace: bool = typer.Option(False, "--replace", help="Overwrite instead of appending"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Record something about a request that no other field captures.
+
+    An acknowledgement is the common case: almost every registrator replies
+    "vi har mottagit din begäran" long before any document arrives. That does
+    not settle the request — the clock must keep running — but it is worth
+    keeping, because it is the proof of receipt an escalation rests on, and
+    because a silent authority and one that acknowledged and then went quiet
+    call for different wording in the reminder.
+    """
+    when = datetime.now(UTC).date().isoformat()
+    entry = f"{when}: {text}"
+    with Storage(db) as storage:
+        current = storage.get_foia(request_id)
+        if current is None:
+            typer.echo(f"Ingen begäran med id {request_id}.", err=True)
+            raise typer.Exit(1)
+        merged = entry if (replace or not current.notes) else f"{current.notes}\n{entry}"
+        storage.update_foia(request_id, notes=merged)
+    typer.echo(f"#{request_id} ({current.target_org}): antecknat.")
+
+
 @foia_app.command("due")
 def foia_due(
     today: str | None = typer.Option(None, help="Treat this as today's date (YYYY-MM-DD)"),

@@ -641,3 +641,53 @@ def test_foia_import_reports_a_bad_sheet_without_a_traceback(tmp_path):
 
     assert result.exit_code == 1
     assert "Traceback" not in result.output
+
+
+def _one_request(db: str) -> int:
+    with Storage(db) as storage:
+        return storage.insert_foia(
+            FoiaRequest(
+                id=None,
+                target_org="Huddinge kommun",
+                target_email="sc@huddinge.se",
+                framework_notice_id=None,
+                status="sent",
+                sent_at="2026-08-31",
+            )
+        )
+
+
+def test_foia_note_appends_and_keeps_the_clock_running(tmp_path):
+    db = str(tmp_path / "t.db")
+    rid = _one_request(db)
+
+    first = runner.invoke(app, ["foia", "note", str(rid), "Bekräftelse mottagen", "--db", db])
+    second = runner.invoke(app, ["foia", "note", str(rid), "Ringde registrator", "--db", db])
+
+    assert first.exit_code == 0, first.output
+    assert second.exit_code == 0, second.output
+    assert "Huddinge kommun" in first.output
+    with Storage(db) as storage:
+        row = storage.get_foia(rid)
+    assert "Bekräftelse mottagen" in row.notes
+    assert "Ringde registrator" in row.notes
+    assert row.notes.count("\n") == 1  # appended, not overwritten
+    # An acknowledgement is not a delivery: the status must not have moved.
+    assert row.status == "sent"
+
+
+def test_foia_note_replace_overwrites(tmp_path):
+    db = str(tmp_path / "t.db")
+    rid = _one_request(db)
+    runner.invoke(app, ["foia", "note", str(rid), "gammalt", "--db", db])
+
+    runner.invoke(app, ["foia", "note", str(rid), "nytt", "--replace", "--db", db])
+
+    with Storage(db) as storage:
+        assert "gammalt" not in storage.get_foia(rid).notes
+
+
+def test_foia_note_unknown_id_is_an_error_not_a_traceback(tmp_path):
+    result = runner.invoke(app, ["foia", "note", "999", "x", "--db", str(tmp_path / "t.db")])
+    assert result.exit_code == 1
+    assert "Traceback" not in result.output
