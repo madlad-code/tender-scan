@@ -41,3 +41,8 @@ extend-immutable-calls = ["typer.Argument", "typer.Option"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# The repo root on sys.path, so `from tests.x import y` resolves the same way
+# under bare `pytest` as under `python -m pytest`. Without it only the latter
+# works — it puts the working directory on the path itself — and the test
+# suite passes locally while failing in CI, which is how it failed in CI.
+pythonpath = ["."]
