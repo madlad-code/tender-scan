@@ -754,10 +754,22 @@ def foia_ingest(
     request_id: int = typer.Argument(..., help="Request id"),
     path: Path = typer.Argument(..., help="The file the authority sent back"),
     refused: bool = typer.Option(False, "--refused", help="The authority refused the request"),
+    partial: bool = typer.Option(
+        False, "--partial", help="Only part of what was asked for; keep chasing the rest"
+    ),
     on: str | None = typer.Option(None, help="Date received (YYYY-MM-DD, default today)"),
     db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
 ) -> None:
-    """Link an incoming file to a request and close its clock."""
+    """Link an incoming file to a request, and settle or keep its clock running.
+
+    `--partial` is the case a delivery-shaped command gets wrong by default: an
+    authority sends the supplier ledger but not the framework breakdown, or one
+    year of the three asked for. A file arrived, so the request is not silent —
+    but half of it is still outstanding, and marking it `received` retires it
+    from `foia due` and loses the missing half.
+    """
+    if refused and partial:
+        raise typer.BadParameter("--refused och --partial utesluter varandra")
     if not path.exists():
         raise typer.BadParameter(f"{path} finns inte")
     when = on or datetime.now(UTC).date().isoformat()
@@ -769,9 +781,20 @@ def foia_ingest(
             request_id,
             response_received_at=when,
             response_file_path=str(path.resolve()),
-            status=foia.STATUS_REFUSED if refused else foia.STATUS_RECEIVED,
+            status=(
+                foia.STATUS_REFUSED
+                if refused
+                else foia.STATUS_PARTIAL
+                if partial
+                else foia.STATUS_RECEIVED
+            ),
         )
     typer.echo(f"#{request_id}: {path} registrerad {when}.")
+    if partial:
+        typer.echo(
+            "Status `partial`: klockan fortsätter gå och `foia due` listar den "
+            "vidare tills resten kommit in."
+        )
     if not refused:
         typer.echo(
             "Nästa steg: läs in beloppen i supplier_payments (source='foia') så att "

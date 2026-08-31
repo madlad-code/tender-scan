@@ -691,3 +691,39 @@ def test_foia_note_unknown_id_is_an_error_not_a_traceback(tmp_path):
     result = runner.invoke(app, ["foia", "note", "999", "x", "--db", str(tmp_path / "t.db")])
     assert result.exit_code == 1
     assert "Traceback" not in result.output
+
+
+def test_foia_ingest_partial_keeps_the_clock_running(tmp_path):
+    """A file arrived, but half the request is still outstanding."""
+    db = str(tmp_path / "t.db")
+    rid = _one_request(db)
+    svar = tmp_path / "huddinge.xlsx"
+    svar.write_text("x", encoding="utf-8")
+
+    result = runner.invoke(app, ["foia", "ingest", str(rid), str(svar), "--partial", "--db", db])
+
+    assert result.exit_code == 0, result.output
+    with Storage(db) as storage:
+        row = storage.get_foia(rid)
+    assert row.status == "partial"
+    assert row.response_file_path.endswith("huddinge.xlsx")
+    # `partial` is not settled, so the chase continues.
+    from datetime import date
+
+    from tender_scan.foia import due_actions
+
+    assert due_actions([row], today=date(2026, 9, 5))
+
+
+def test_foia_ingest_refused_and_partial_are_mutually_exclusive(tmp_path):
+    db = str(tmp_path / "t.db")
+    rid = _one_request(db)
+    svar = tmp_path / "x.pdf"
+    svar.write_text("x", encoding="utf-8")
+
+    result = runner.invoke(
+        app, ["foia", "ingest", str(rid), str(svar), "--refused", "--partial", "--db", db]
+    )
+
+    assert result.exit_code != 0
+    assert "Traceback" not in result.output

@@ -96,6 +96,7 @@ tender-scan foia import batch1.csv      # or sync a whole outreach sheet at once
 tender-scan foia due                    # day 3 reminder, day 5 call, day 10 written decision
 tender-scan foia note 1 "bekräftelse mottagen, diarienr KS-2026-123"
 tender-scan foia ingest 1 svar.csv
+tender-scan foia ingest 7 svar.xlsx --partial   # part of it arrived; keep chasing the rest
 ```
 
 `foia_requests` is the record of truth for where each request stands — `foia due` reads it and nothing else. A sheet is an input to it via `foia import`, never a parallel copy of it.
