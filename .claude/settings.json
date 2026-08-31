@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/scripts/state.py\" --print 2>/dev/null || true",
+            "timeout": 25,
+            "statusMessage": "Uppdaterar STATE.md..."
+          }
+        ]
+      }
+    ]
+  }
+}

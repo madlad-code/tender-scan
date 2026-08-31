@@ -213,6 +213,22 @@ Via environment variables (see `.env.example`):
 
 No secrets are needed — the TED search endpoints are public.
 
+## STATE.md — where the project actually is
+
+The project gets worked on from more than one place: an agent in the terminal that can read the code but knows nothing about what was decided in a browser, and an assistant in a browser that knows the plan but cannot see the repository. Each reconstructs the other's half by asking questions, badly and expensively.
+
+[STATE.md](STATE.md) is the shared answer. It is committed, so anything that can read the repo can read it, and it is regenerated at the start of every session, so it is never the stale summary someone forgot to update.
+
+```bash
+python3 scripts/state.py           # rewrite STATE.md
+python3 scripts/state.py --print   # rewrite, then print it
+python3 scripts/state.py --check   # print without writing
+```
+
+Everything a machine can observe is generated: branch and whether it is pushed, recent commits, which containers run and how old their image is, row counts per table, open records requests. Everything a machine cannot observe — where you are in the plan, what you are waiting for, what you decided and why — lives between the `MANUELLT` markers and is copied through untouched.
+
+`.claude/settings.json` runs the script as a `SessionStart` hook, so a session opens with the file fresh and already in context. `/lage` regenerates it mid-session. The script is standard library only, so it runs under the system interpreter without the project's virtualenv.
+
 ## Docs & site
 
 - [docs/kallor.md](docs/kallor.md) — map of Swedish procurement data sources (what's free, what has an API)

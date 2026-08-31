@@ -16,3 +16,6 @@ foia/
 
 # Structured external-call log, written at runtime.
 tender_scan.log
+
+# Personal overrides; the shared project settings and commands are tracked.
+.claude/settings.local.json
