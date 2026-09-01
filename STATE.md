@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-08-31 22:50 UTC._
+_Genererad 2026-08-31 23:38 UTC._
 
 ## Planen och kontakterna
 
@@ -16,10 +16,13 @@ _Den här delen skrivs aldrig över av generatorn. Håll den kort och ärlig._
 - **Läge:** M0–M6 klara och testade. Hela kedjan finns i kod: takvolym ur notisen →
   vinnare → betalningar matchade på både leverantör och betalande köpare →
   utnyttjandegrad med täckningsgrad.
-- **Batch 1 är ute och inkorgen är läst.** 20 kommuner mejlade 2026-08-31,
-  loggade i `foia_requests`. Gmail genomsökt 2026-08-31 22:50 UTC: **12 av 20
-  har svarat, 8 är helt tysta** — inte ens ett autosvar. Huddinge har skickat
-  avtalskatalogen men inte reskontran, och står rätt som `partial`.
+- **Batch 1 är ute och inkorgen är läst två gånger.** 20 kommuner mejlade
+  2026-08-31. Gmail genomsökt 2026-08-31 22:50 och 2026-09-01 09:19 UTC:
+  **15 av 20 har svarat, 5 är helt tysta.** Tre av gårdagens tysta — Göteborg,
+  Härnösand, Karlstad — svarade under natten, vilket är argumentet för att läsa
+  inkorgen strax före en påminnelse och inte dagen innan.
+  **Två kommuner har skickat handlingar:** Huddinge avtalskatalogen, Göteborg
+  sin avtalssammanställning. Båda gäller punkt 1 av två.
   Dag 3 (påminnelse) förfaller 2026-09-03 — kör `tender-scan foia due`.
 - **Avläsningen är ännu inte i databasen.** Sessionen som läste Gmail körde i en
   molnbehållare utan `data/tender_scan.db`. Fynden ligger i
@@ -70,54 +73,66 @@ Allt annat — säljmejl, samtal, möten — skrivs för hand här._
   lämnar maskinen utan att du startat det.
 ### Vad batch 1 faktiskt svarade
 
-Läst i Gmail 2026-08-31 22:50 UTC. Alla 20 utskicken finns i `Skickat`
-(09:15–09:18 UTC), så ingen begäran fastnade i utkorgen och ingen studsade.
+Läst i Gmail 2026-08-31 22:50 UTC och igen 2026-09-01 09:19 UTC. Alla 20
+utskicken finns i `Skickat` (09:15–09:18 UTC 2026-08-31), så ingen begäran
+fastnade i utkorgen och ingen studsade.
 
 | Kommun | Svar | Diarienummer |
 | --- | --- | --- |
-| Huddinge | **Avtalskatalogen.xlsx bifogad** 12:19; ekonomienheten svarar separat om reskontran | 2026SC66301 |
-| Hässleholm | **Avgift 161 kr** för ca 19 filer; Oscar accepterade 22:16 och bad om betalningsinstruktion | – |
+| Göteborg | **`Avtal 20230101-20260901.xlsx` bifogad** 09-01; punkt 2 hänvisad till stadens öppna data, årsvis | – |
+| Huddinge | **`Avtalskatalogen.xlsx` bifogad** 08-31; ekonomienheten svarar separat om reskontran | 2026SC66301 |
+| Hässleholm | **Avgift 161 kr** för ca 19 filer; Oscar accepterade 08-31 22:16 och bad om betalningsinstruktion | – |
+| Härnösand | Bekräftat 09-01; **kostnad utlovad, exakt summa meddelas senare** | – |
 | Falun | Bekräftat; sekretessbedömning av leverantörsfakturor kan dra ut på tiden, kostnad kan tillkomma | FK-2608-11504 |
 | Haninge | Bekräftat; avgift kan tas ut, alternativt läsning på plats gratis | 2026HAN19344 |
+| Karlstad | Automatisk bekräftelse 09-01 | K202699134 |
 | Enköping | Bekräftat, vidare till kommunledningsförvaltningen | KC202639332 |
 | Helsingborg | Bekräftat, vidare till berörd förvaltning | KC-#254868 |
-| Gävle | Bekräftat | KC2026136671 |
+| Gävle | Bekräftat två gånger, med **två skilda ärendenummer** för samma begäran | KC2026136671, KC2026137233 |
 | Borås | Bekräftat, vidare till koncerninköp och leverantörsreskontra | – |
 | Kalmar | Bekräftat, vidarebefordrat för handläggning | – |
 | Jönköping | Automatisk bekräftelse | – |
 | Halmstad | Automatiskt svar från diariet | – |
 | Grästorp | Autosvar | – |
 
-**Helt tysta:** Göteborgs stad, Eskilstuna, Karlstad, Katrineholm, Härnösand,
-Aneby, Bjurholm, Dorotea.
+**Helt tysta (5):** Eskilstuna, Katrineholm, Aneby, Bjurholm, Dorotea.
 
-Två rättelser mot vad som antogs innan inkorgen lästes. Bekräftelser kom
-**inte** från "typ alla" utan från 12 av 20 — de åtta tysta har inte hört av sig
-över huvud taget, vilket är den grupp dag 3-påminnelsen är till för. Och
-Huddinges delleverans är verifierad: `Avtalskatalogen.xlsx` från Katarina
-Svärdgren, inköpssamordnare, med reskontran uttryckligen utlovad separat.
+Ingen har avslagit. Ingen har levererat allt. De två som skickat filer har
+skickat punkt 1 och lämnat punkt 2 öppen, vilket är exakt vad `partial` finns
+för — och `foia ingest` har nu ett `--partial` som registrerar filen utan att
+stänga klockan.
 
-Ingen har avslagit. Ingen har levererat allt. Därför ändras ingen status — bara
-`notes` — och klockan fortsätter gå på samtliga 20.
+**Göteborg är den intressanta.** Diariet skriver att hela stadens
+leverantörsreskontra ligger årsvis på stadens öppna data. Projektet mäter i dag
+Göteborg på **en månad av 17**, alltså 5,9 % periodtäckning, och det är den
+siffra som binder hela analysen. Stämmer hänvisningen finns resten redan
+publicerad. Det är inte verifierat — länken ligger i anteckningen på Göteborgs
+rad — och att kontrollera den är förmodligen den enskilt mest värdefulla
+timmen som går att lägga just nu.
 
-### NÄSTA JOBB: skriv in avläsningen och skicka dag 3-påminnelserna
+### NÄSTA JOBB: skriv in avläsningen, kontrollera Göteborgs öppna data
 
 På maskinen som har databasen, i den ordningen:
 
 1. **Registrera svaren.** `python3 scripts/registrera_batch1_svar.py` visar vad
-   som skulle skrivas; `--live` skriver. Tolv `foia note`, ingen statusändring.
-   Säker att köra om — varje anteckning bär sin egen markör.
-2. **Spara Huddinges bilaga.** `Avtalskatalogen.xlsx` ligger i mejlet
-   "Avtalskatalogen" från Katarina.Svardgren@huddinge.se (2026-08-31 12:19 UTC).
-   Lägg den där svarsfiler ska bo. **Kör inte `foia ingest` på den än** — den
-   sätter status till `received` och stänger klockan, och reskontran som är
-   halva begäran återstår. `ingest` när ekonomienheten hör av sig, inte förr.
-3. **Dag 3, 2026-09-03:** `tender-scan foia due` listar alla 20. De åtta tysta
-   är de som behöver en riktig påminnelse; de tolv som bekräftat behöver en
-   annan formulering, eftersom bekräftelsen är kvittot en eskalering vilar på.
-4. **Hässleholm väntar på betalningsinstruktion.** 161 kr, accepterat men inte
-   betalt. Kommer ingen faktura eller inget bankgiro inom rimlig tid är det den
-   tråden som ska ryckas i, inte en allmän påminnelse.
+   som skulle skrivas; `--live` skriver. 16 anteckningar på 15 kommuner
+   (Gävle får två), ingen statusändring. Säker att köra om.
+2. **Spara de två bilagorna och registrera dem.** `Avtalskatalogen.xlsx` från
+   Katarina.Svardgren@huddinge.se (08-31 12:19 UTC) och
+   `Avtal 20230101-20260901.xlsx` från stadsledningskontoret i Göteborg
+   (09-01 07:49 UTC). Båda med **`--partial`**, annars sätts status till
+   `received` och `foia due` slutar jaga den halva som fattas.
+3. **Kontrollera Göteborgs öppna data-sida.** Täcker den 2023–2026 för
+   leverantörsfakturor? Om ja: läs in och se vad periodtäckningen blir när den
+   inte längre är 1/17. Om nej: återkom till diariet, som erbjudit sig att
+   lämna sammanställningen på annat sätt.
+4. **Dag 3, 2026-09-03.** `docs/paminnelse-mall.md` delar de 20 i fyra grupper
+   och har mallarna: 5 tysta får mall A, 10 som bekräftat får mall B, 4 där
+   arbete pågår ska ha ett riktat svar i befintlig tråd i stället, och Göteborg
+   ingen påminnelse alls. Registrera med `foia did <id> reminder_1`.
+5. **Hässleholm och Härnösand väntar på belopp.** Hässleholm: 161 kr accepterat,
+   ingen betalningsinstruktion. Härnösand: kostnad utlovad, ingen summa. Båda
+   ska ryckas i via sina egna trådar, inte via en allmän påminnelse.
 
 Hitta inte på. Registrera bara det som står i ett faktiskt mejl, med
 diarienummer och datum där det finns.
@@ -127,11 +142,12 @@ diarienummer och datum där det finns.
 ## Kod
 
 - Gren: `claude/state-md-next-job-868omh`
-- Ingen uppström satt — inget är pushat någonstans
-- Arbetsträd: rent
+- Synkad med `origin/claude/state-md-next-job-868omh`
+- Arbetsträd: 1 ändrad fil
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `cc08409` | 2026-08-31 | feat(m3): the batch 1 inbox, read and written down |
 | `128b1e1` | 2026-09-01 | docs(state): hand off the Gmail triage of batch 1 to the next session |
 | `816268b` | 2026-09-01 | feat(m3): foia note, for what no other field captures |
 | `d1ffebb` | 2026-08-31 | feat(state): warn when the running image predates the code |
@@ -139,7 +155,6 @@ diarienummer och datum där det finns.
 | `269d539` | 2026-08-31 | fix(ci): put the repo root on sys.path for bare pytest |
 | `181ff4b` | 2026-08-31 | chore(state): refresh after push |
 | `9a6db60` | 2026-08-31 | fix(state): only rewrite STATE.md when something actually changed |
-| `dbe1ea3` | 2026-08-31 | feat(m3): import a hand-kept outreach sheet, and a status for a half-answer |
 
 ## Vad som kör
 

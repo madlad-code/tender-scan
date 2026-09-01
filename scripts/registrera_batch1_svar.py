@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Registrera batch 1:s Gmail-svar i `foia_requests`.
 
-Svaren lästes i Gmail 2026-08-31 av en session som körde i en molnbehållare —
-utan databasen, som bor på Oscars maskin. Fynden kan därför inte skrivas där de
-hör hemma i samma andetag som de görs. Den här filen är bryggan: den bär
-avläsningen i versionshanterad form tills någon kör den på maskinen som har
-databasen.
+Svaren lästes i Gmail 2026-08-31 22:50 UTC och igen 2026-09-01 09:19 UTC, av
+sessioner som körde i en molnbehållare — utan databasen, som bor på Oscars
+maskin. Fynden kan därför inte skrivas där de hör hemma i samma andetag som de
+görs. Den här filen är bryggan: den bär avläsningen i versionshanterad form
+tills någon kör den på maskinen som har databasen.
 
 ## Bara det som stod i ett mejl
 
@@ -15,19 +15,18 @@ står det uttryckligen — hellre det än ett påhittat nummer. De åtta kommune
 inte svarat alls får ingen anteckning: tystnad är inte en händelse att
 registrera, den syns redan i `foia due`.
 
-## Ingen status ändras
+## Ingen status ändras här
 
-Samtliga tolv svar är mottagningsbekräftelser, avgiftsbesked eller
-delleveranser — inget avslag, ingen fullständig leverans. Statusen ska därför
-stå kvar som den är och klockan fortsätta gå. Skriptet skriver bara `notes`,
-via `tender-scan foia note`, och rör aldrig något statusfält.
+Inget av svaren är ett avslag, och inget är en fullständig leverans. Skriptet
+skriver därför bara `notes`, via `tender-scan foia note`, och rör aldrig något
+statusfält.
 
-Huddinge är undantaget som visar varför: kommunen *har* skickat handlingar
-(avtalskatalogen), men leverantörsreskontran återstår. `foia ingest` finns för
-inkomna filer, men den sätter status till `received` och stänger klockan — och
-Huddinge står i dag som `partial` just för att halva begäran är obesvarad. Att
-köra `ingest` här vore att glömma bort den andra halvan. Filen registreras när
-reskontran kommer; till dess räcker anteckningen.
+Två kommuner har ändå skickat handlingar: Huddinge avtalskatalogen, Göteborg
+sin avtalssammanställning. Båda gäller punkt 1 av två, och båda filerna ska in
+med `tender-scan foia ingest <id> <fil> --partial` — `--partial` för att den
+andra halvan fortfarande fattas och klockan måste gå vidare. Det görs för hand,
+när filerna ligger sparade på disk, och inte härifrån: skriptet vet inte var de
+hamnade.
 
 ## Körning
 
@@ -49,17 +48,22 @@ import sys
 from pathlib import Path
 
 # The marker that makes a re-run a no-op. `foia note` appends, so without it a
-# second run would write every note a second time. It carries the key rather
-# than being one shared string, so the check tests "has *this* note been
-# written" instead of the much weaker "has this script ever run here".
-MARKER = "[batch1-gmail:{nyckel}]"
+# second run would write every note a second time. It carries a per-note id
+# rather than being one shared string, so the check tests "has *this* note been
+# written" instead of the much weaker "has this script ever run here" — and so
+# a kommun that turns up twice, as Gävle did with a second ärendenummer, can be
+# annotated twice without the first note blocking the second.
+MARKER = "[batch1-gmail:{markor}]"
 
-# Keyed by the distinctive first word of the authority's name, because the
-# sheet these rows were imported from spells the rest inconsistently ("Borås
-# stad" / "Borås Stad", "Falu kommun" / "Falun"). Matching on the whole name
-# would miss; matching on a prefix this specific cannot collide inside batch 1.
-NOTERINGAR: list[tuple[str, str]] = [
+# (nyckel, markör, text). The key is the distinctive first word of the
+# authority's name, because the sheet these rows were imported from spells the
+# rest inconsistently ("Borås stad" / "Borås Stad", "Falu kommun" / "Falun").
+# Matching on the whole name would miss; matching on a prefix this specific
+# cannot collide inside batch 1. The marker is normally the key, and differs
+# only where one kommun needs a second, separately-skippable note.
+NOTERINGAR: list[tuple[str, str, str]] = [
     (
+        "huddinge",
         "huddinge",
         "svar 2026-08-31 12:19 UTC — avtalskatalogen levererad som bilagan Avtalskatalogen.xlsx av "
         "Katarina Svärdgren, inköpssamordnare på upphandlingssektionen. "
@@ -69,6 +73,7 @@ NOTERINGAR: list[tuple[str, str]] = [
     ),
     (
         "hässleholm",
+        "hässleholm",
         "svar 2026-08-31 12:07 UTC — Ahmet Baran, ekonom på kommunledningsförvaltningen: "
         "uppgifterna lämnas ut digitalt, uppdelade på cirka 19 filer, mot en avgift om "
         "161 kr enligt kommunens taxa för kopior. Oscar svarade 22:16 UTC att han "
@@ -77,12 +82,14 @@ NOTERINGAR: list[tuple[str, str]] = [
     ),
     (
         "haninge",
+        "haninge",
         "svar 2026-08-31 — mottagningsbekräftelse, ärende 2026HAN19344 (autosvar 09:18 UTC, "
         "registrator 10:31 UTC). Registratorn upplyser att avgift kan tas ut enligt "
         "kopieringstaxan, och att handlingarna alternativt kan läsas kostnadsfritt på "
         "plats. Inga handlingar ännu.",
     ),
     (
+        "falu",
         "falu",
         "svar 2026-08-31 — mottagningsbekräftelse, ärende FK-2608-11504 (kontaktcenter "
         "09:23 UTC). Fakturaenheten på ekonomikontoret (11:40 UTC): återkommer med "
@@ -92,11 +99,13 @@ NOTERINGAR: list[tuple[str, str]] = [
     ),
     (
         "enköping",
+        "enköping",
         "svar 2026-08-31 — mottagningsbekräftelse, ärende KC202639332 (09:20 UTC). "
         "Kontaktcenter återkopplade 13:51 UTC att begäran skickats vidare till "
         "kommunledningsförvaltningen. Inga handlingar ännu.",
     ),
     (
+        "helsingborg",
         "helsingborg",
         "svar 2026-08-31 — mottagningsbekräftelse, ärende KC-#254868 (09:16 UTC). "
         "Kontaktcenter 10:14 UTC: ärendet vidarebefordrat till berörd förvaltning, "
@@ -104,10 +113,12 @@ NOTERINGAR: list[tuple[str, str]] = [
     ),
     (
         "gävle",
+        "gävle",
         "svar 2026-08-31 — mottagningsbekräftelse, ärende KC2026136671, registrerat "
         "2026-08-31 (09:18 UTC). Inga handlingar ännu.",
     ),
     (
+        "borås",
         "borås",
         "svar 2026-08-31 — mottagningsbekräftelse från Anna Möller, registrator (12:13 UTC): "
         "begäran vidarebefordrad till koncerninköp och leverantörsreskontra för "
@@ -115,20 +126,61 @@ NOTERINGAR: list[tuple[str, str]] = [
     ),
     (
         "kalmar",
+        "kalmar",
         "svar 2026-08-31 — mottagningsbekräftelse från kommunvägledare (09:24 UTC): ärendet "
         "vidarebefordrat för handläggning. Inget diarienummer angivet. Inga handlingar ännu.",
     ),
     (
+        "jönköping",
         "jönköping",
         "svar 2026-08-31 — automatisk mottagningsbekräftelse (09:16 UTC). Inget diarienummer "
         "angivet. Inga handlingar ännu.",
     ),
     (
         "halmstad",
+        "halmstad",
         "svar 2026-08-31 — automatiskt svar från kommunstyrelsens diarium (09:16 UTC). "
         "Inget diarienummer angivet. Inga handlingar ännu.",
     ),
+    # --- svar som kom under natten till 2026-09-01 --------------------------
     (
+        "göteborg",
+        "göteborg",
+        "svar 2026-09-01 07:49 UTC — diariet på stadsledningskontoret bifogade "
+        "sammanställningen till punkt 1 som filen 'Avtal 20230101-20260901.xlsx', "
+        "framtagen av stadens förvaltning för inköp och upphandling. Punkt 2 besvarades "
+        "med en hänvisning i stället för en handling: hela stadens leverantörsreskontra "
+        "ligger årsvis på stadens sida för öppna data, "
+        "https://goteborg.se/wps/portal?uri=gbglnk%3a2015816171319546#esc_term="
+        "leverantörsfakturor . Diariet erbjöd sig att lämna sammanställningen på annat "
+        "sätt om det behövs. Halv leverans: filen ska in med `foia ingest --partial`.",
+    ),
+    (
+        "härnösand",
+        "härnösand",
+        "svar 2026-09-01 08:35 UTC — Ann-Catrine Forsberg, inköps- och avtalscontroller "
+        "på upphandlingsenheten: begäran mottagen och ska hanteras skyndsamt, men "
+        "utlämnandet kommer att kosta och exakt summa meddelas senare. Centraldiariet "
+        "vidarebefordrade ärendet internt 2026-08-31 12:54. Inget belopp och inget "
+        "diarienummer ännu, inga handlingar ännu.",
+    ),
+    (
+        "karlstad",
+        "karlstad",
+        "svar 2026-09-01 06:49 UTC — automatisk bekräftelse, ärende K202699134, "
+        "registrerat 2026-09-01 08:47:35 lokal tid. Mejlet går inte att svara på. "
+        "Inga handlingar ännu.",
+    ),
+    (
+        "gävle",
+        "gävle-2",
+        "andra bekräftelsen 2026-09-01 06:32 UTC — ärende KC2026137233, registrerat "
+        "2026-08-31 11:17:26 lokal tid, status 'Mottaget ärende'. Gävle har därmed gett "
+        "två ärendenummer för samma begäran (det första var KC2026136671). Båda gäller "
+        "utskicket 2026-08-31; ingen förklaring till dubbleringen har lämnats.",
+    ),
+    (
+        "grästorp",
         "grästorp",
         "svar 2026-08-31 — autosvar (09:18 UTC), mejlet mottaget, kan komma att "
         "vidarebefordras till berörd handläggare. Inget diarienummer angivet. "
@@ -136,16 +188,15 @@ NOTERINGAR: list[tuple[str, str]] = [
     ),
 ]
 
-# Searched in Gmail on 2026-08-31 22:50 UTC and found to have sent nothing at
-# all — not even an autoreply. Listed so the reader can see that the twelve
-# above are twelve of twenty, and that the absence was checked rather than
-# assumed.
+# Searched in Gmail on 2026-08-31 22:50 UTC and again on 2026-09-01 09:19 UTC,
+# and found to have sent nothing at all — not even an autoreply. Listed so the
+# reader can see that the notes above are fifteen of twenty, and that the
+# absence was checked rather than assumed. Göteborg, Härnösand and Karlstad
+# were on this list yesterday and answered overnight, which is the argument for
+# re-reading the inbox before sending a reminder rather than after.
 TYSTA = (
-    "Göteborgs stad",
     "Eskilstuna kommun",
-    "Karlstads kommun",
     "Katrineholms kommun",
-    "Härnösands kommun",
     "Aneby kommun",
     "Bjurholms kommun",
     "Dorotea kommun",
@@ -199,7 +250,7 @@ def main() -> int:
         sys.exit(f"{db} innehåller inga begäranden. Kör `tender-scan foia import` först.")
 
     skrivna = hoppade = saknade = 0
-    for nyckel, text in NOTERINGAR:
+    for nyckel, markor_id, text in NOTERINGAR:
         rad = matcha(nyckel, rader)
         if rad is None:
             print(f"?  {nyckel}: ingen entydig rad i foia_requests — hoppar över")
@@ -207,7 +258,7 @@ def main() -> int:
             continue
 
         request_id, org, status, notes = rad
-        markor = MARKER.format(nyckel=nyckel)
+        markor = MARKER.format(markor=markor_id)
         if notes and markor in notes:
             print(f"=  #{request_id} {org}: redan antecknad")
             hoppade += 1
@@ -236,8 +287,11 @@ def main() -> int:
     else:
         print(f"{len(NOTERINGAR) - hoppade - saknade} skulle antecknas. Kör om med --live.")
     print(
-        "\nNär Huddinges ekonomienhet skickar leverantörsreskontran, och inte förr:\n"
-        "  tender-scan foia ingest <id> <fil>   # stänger klockan, partial -> received"
+        "\nTvå kommuner har skickat handlingar. Spara filerna och registrera dem med\n"
+        "--partial, så att den halva som fattas fortsätter jagas:\n"
+        "  tender-scan foia ingest <id> Avtalskatalogen.xlsx --partial           # Huddinge\n"
+        "  tender-scan foia ingest <id> 'Avtal 20230101-20260901.xlsx' --partial # Göteborg\n"
+        "Utan --partial sätts status till received och `foia due` slutar lista dem."
     )
     return 0
 

@@ -754,13 +754,32 @@ def foia_ingest(
     request_id: int = typer.Argument(..., help="Request id"),
     path: Path = typer.Argument(..., help="The file the authority sent back"),
     refused: bool = typer.Option(False, "--refused", help="The authority refused the request"),
+    partial: bool = typer.Option(
+        False, "--partial", help="Only part of what was asked for — keep chasing the rest"
+    ),
     on: str | None = typer.Option(None, help="Date received (YYYY-MM-DD, default today)"),
     db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
 ) -> None:
-    """Link an incoming file to a request and close its clock."""
+    """Link an incoming file to a request and close its clock.
+
+    `--partial` is the exception that keeps it open. An authority that sends
+    the contract catalogue and says the ledger follows separately has answered
+    with a document, and the document must be recorded — but the request is
+    half done, and `received` would retire it from `foia due` with the missing
+    half unchased. Both kommuner that delivered anything in batch 1 delivered
+    like this, so it is the common shape rather than the odd one.
+    """
     if not path.exists():
         raise typer.BadParameter(f"{path} finns inte")
+    if refused and partial:
+        raise typer.BadParameter("--refused och --partial går inte ihop: välj en")
     when = on or datetime.now(UTC).date().isoformat()
+    if refused:
+        status = foia.STATUS_REFUSED
+    elif partial:
+        status = foia.STATUS_PARTIAL
+    else:
+        status = foia.STATUS_RECEIVED
     with Storage(db) as storage:
         if storage.get_foia(request_id) is None:
             typer.echo(f"Ingen begäran med id {request_id}.", err=True)
@@ -769,9 +788,14 @@ def foia_ingest(
             request_id,
             response_received_at=when,
             response_file_path=str(path.resolve()),
-            status=foia.STATUS_REFUSED if refused else foia.STATUS_RECEIVED,
+            status=status,
         )
     typer.echo(f"#{request_id}: {path} registrerad {when}.")
+    if partial:
+        typer.echo(
+            "Status partial: klockan går vidare och `foia due` fortsätter lista "
+            "begäran tills resten kommit in."
+        )
     if not refused:
         typer.echo(
             "Nästa steg: läs in beloppen i supplier_payments (source='foia') så att "

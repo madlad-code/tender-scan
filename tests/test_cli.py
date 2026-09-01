@@ -545,6 +545,37 @@ def test_foia_ingest_links_the_file_and_closes_the_clock(tmp_path: Path) -> None
     assert "Inget att göra" in due.output
 
 
+def test_foia_ingest_partial_records_the_file_but_keeps_the_clock_running(
+    tmp_path: Path,
+) -> None:
+    db = _foia_db(tmp_path)
+    answer = tmp_path / "avtalskatalog.xlsx"
+    answer.write_text("avtal;leverantor\n", encoding="utf-8")
+    runner = CliRunner()
+    runner.invoke(app, ["foia", "sent", "1", "--on", "2026-08-01", "--db", str(db)])
+    result = runner.invoke(app, ["foia", "ingest", "1", str(answer), "--partial", "--db", str(db)])
+    assert result.exit_code == 0, result.output
+    with Storage(db) as storage:
+        row = storage.get_foia(1)
+    assert row is not None and row.status == "partial"
+    assert row.response_file_path == str(answer.resolve())
+    # The half that has not arrived is still worth chasing, so the day-3
+    # reminder must survive the delivery of the half that has.
+    due = runner.invoke(app, ["foia", "due", "--today", "2026-09-01", "--db", str(db)])
+    assert "påminnelse" in due.output
+
+
+def test_foia_ingest_refuses_to_be_both_partial_and_refused(tmp_path: Path) -> None:
+    db = _foia_db(tmp_path)
+    answer = tmp_path / "beslut.pdf"
+    answer.write_text("avslag", encoding="utf-8")
+    result = CliRunner().invoke(
+        app, ["foia", "ingest", "1", str(answer), "--partial", "--refused", "--db", str(db)]
+    )
+    assert result.exit_code != 0
+    assert "går inte ihop" in result.output
+
+
 def test_foia_ingest_rejects_a_missing_file(tmp_path: Path) -> None:
     result = CliRunner().invoke(
         app, ["foia", "ingest", "1", str(tmp_path / "nope.csv"), "--db", str(_foia_db(tmp_path))]
