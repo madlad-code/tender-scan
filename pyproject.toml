@@ -19,6 +19,15 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.5",
 ]
+# Reading what the kommuner send back. The three open-data loaders read CSV and
+# JSON and need none of this; a begäran answered by email arrives as whatever
+# the kommun's system exports, which so far means xlsx, the old BIFF .xls and
+# PDF. Kept optional so the core stays two dependencies.
+files = [
+    "openpyxl>=3.1",
+    "xlrd>=2.0",
+    "pypdf>=4.0",
+]
 
 [project.scripts]
 tender-scan = "tender_scan.cli:app"

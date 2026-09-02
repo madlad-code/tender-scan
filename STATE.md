@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-09-02 10:17 UTC._
+_Genererad 2026-09-02 10:30 UTC._
 
 ## Planen och kontakterna
 
@@ -35,8 +35,16 @@ _Den här delen skrivs aldrig över av generatorn. Håll den kort och ärlig._
   noll ny kod. Se `docs/analys-berakningsunderlag.md`.
 - **Ingen av de nio FOIA-filerna går att läsa in.** `LOADERS` har bara `vgr`,
   `goteborg` och `vasteras`, alla för öppna data-kataloger. Schemat tillåter
-  `source='foia'` men ingen kod producerar en sådan rad. Borås tre år ligger
-  och väntar på en adapter som ingen skrivit.
+  `source='foia'` men ingen kod producerar en sådan rad. Projektet hade dessutom
+  ingen xlsx-läsare alls — `pip install -e ".[files]"` lägger till openpyxl,
+  xlrd och pypdf, hållna utanför kärnan.
+- **Filerna ska inte gå genom en modellkontext, bara deras form.**
+  `scripts/profilera_svarsfiler.py` drar ut blad, rubrikrad, kolumnroller,
+  radantal och datumspann ur varje fil — ett par kB i stället för 100 MB. Den
+  profilen räcker för att skriva loadern; datat läses sedan av koden. Profilen
+  svarar också på den avgörande frågan per fil: **har varje rad ett eget
+  fakturadatum?** Utan det kastar `to_payments` raden och filen är obrukbar för
+  utnyttjandegrad.
 - **Vad som ännu inte går att påstå:** att verkligt avrop landar på en viss
   andel av uppskattat värde. Det bygger på n=1 och den punkten pekar åt fel
   håll. Säljargumentet är i stället att *fördelningen mellan vinnande
@@ -132,9 +140,11 @@ batchen inte blir klar av sig själv.
 
 På maskinen som har databasen, i den ordningen:
 
-1. **Hämta de nio filerna.** `python3 scripts/hamta_bilagor.py` visar vad som
-   skulle hämtas; `--live` hämtar till `data/foia-svar/`. Kräver `GMAIL_USER`
-   och `GMAIL_APP_PASSWORD` — samma app-lösenord som `send_batch.py`.
+1. **Hämta de nio filerna och profilera dem.**
+   `python3 scripts/hamta_bilagor.py --live` hämtar till `data/foia-svar/`
+   (kräver `GMAIL_USER` och `GMAIL_APP_PASSWORD`). Kör sedan
+   `pip install -e ".[files]"` och `python3 scripts/profilera_svarsfiler.py`.
+   Profilen på ett par kB är det som behövs för att skriva FOIA-loadern.
 2. **Registrera svaren.** `python3 scripts/registrera_batch1_svar.py --live`.
    24 anteckningar på 17 kommuner, ingen statusändring. Säker att köra om.
 3. **Registrera filerna.** Bjurholm kan stängas helt:
@@ -164,6 +174,7 @@ diarienummer och datum där det finns.
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `40a1f55` | 2026-09-02 | docs: what the calculation actually needs, and what can be claimed |
 | `2f328da` | 2026-09-02 | feat(m3): fetch the answers' attachments, and the day the files arrived |
 | `753e67d` | 2026-09-01 | feat(m3): ingest --partial, and the four answers that arrived overnight |
 | `cc08409` | 2026-08-31 | feat(m3): the batch 1 inbox, read and written down |
@@ -171,7 +182,6 @@ diarienummer och datum där det finns.
 | `816268b` | 2026-09-01 | feat(m3): foia note, for what no other field captures |
 | `d1ffebb` | 2026-08-31 | feat(state): warn when the running image predates the code |
 | `260087a` | 2026-08-31 | chore(state): refresh |
-| `269d539` | 2026-08-31 | fix(ci): put the repo root on sys.path for bare pytest |
 
 ## Vad som kör
 
