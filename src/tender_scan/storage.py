@@ -41,7 +41,13 @@ from typing import Any
 
 from tender_scan.models import Lot, Notice, normalize_deadline, parse_lots, parse_notice
 from tender_scan.orgnr import normalize_orgnr
-from tender_scan.records import AwardWinner, FoiaRequest, FrameworkAgreement, SupplierPayment
+from tender_scan.records import (
+    AwardWinner,
+    FoiaRequest,
+    FrameworkAgreement,
+    MunicipalContract,
+    SupplierPayment,
+)
 
 DEFAULT_DB_PATH = "tender_scan.db"
 
@@ -141,10 +147,31 @@ CREATE TABLE IF NOT EXISTS fx_rates (
     PRIMARY KEY (currency, rate_date)
 );
 
+CREATE TABLE IF NOT EXISTS municipal_contracts (
+    buyer_org      TEXT NOT NULL,
+    buyer_orgnr    TEXT,
+    contract_ref   TEXT,
+    title          TEXT,
+    category       TEXT,
+    supplier_name  TEXT NOT NULL,
+    supplier_orgnr TEXT,
+    start_date     TEXT,
+    end_date       TEXT,
+    rank           INTEGER,
+    cap_value_sek  INTEGER,
+    source         TEXT NOT NULL,   -- 'foia' | 'open_data'
+    source_file    TEXT,
+    row_hash       TEXT NOT NULL,
+    ingested_at    TEXT NOT NULL,
+    PRIMARY KEY (row_hash)
+);
+
 CREATE INDEX IF NOT EXISTS idx_award_winners_orgnr ON award_winners (supplier_orgnr);
 CREATE INDEX IF NOT EXISTS idx_payments_orgnr ON supplier_payments (supplier_orgnr);
 CREATE INDEX IF NOT EXISTS idx_payments_payer ON supplier_payments (payer_org);
 CREATE INDEX IF NOT EXISTS idx_payments_payer_orgnr ON supplier_payments (payer_orgnr);
+CREATE INDEX IF NOT EXISTS idx_contracts_buyer ON municipal_contracts (buyer_org);
+CREATE INDEX IF NOT EXISTS idx_contracts_orgnr ON municipal_contracts (supplier_orgnr);
 """
 
 _SCHEMA = _SCHEMA_V2 + _SCHEMA_V3
@@ -198,6 +225,24 @@ _FOIA_COLUMNS = (
     "response_received_at",
     "response_file_path",
     "notes",
+)
+
+_CONTRACT_COLUMNS = (
+    "buyer_org",
+    "buyer_orgnr",
+    "contract_ref",
+    "title",
+    "category",
+    "supplier_name",
+    "supplier_orgnr",
+    "start_date",
+    "end_date",
+    "rank",
+    "cap_value_sek",
+    "source",
+    "source_file",
+    "row_hash",
+    "ingested_at",
 )
 
 _PAYMENT_COLUMNS = (
@@ -510,6 +555,34 @@ class Storage:
             )
         return self._conn.total_changes - before
 
+    def insert_contracts(self, contracts: Iterable[MunicipalContract]) -> int:
+        """Add catalogue rows that are not already stored; returns how many were added.
+
+        Same idempotency contract as `insert_payments`: `row_hash` is the
+        primary key, so re-reading the same delivered file adds nothing.
+        """
+        rows = [_contract_values(c) for c in contracts]
+        if not rows:
+            return 0
+        columns = ", ".join(_CONTRACT_COLUMNS)
+        placeholders = ", ".join("?" for _ in _CONTRACT_COLUMNS)
+        before = self._conn.total_changes
+        with self._conn:
+            self._conn.executemany(
+                f"INSERT OR IGNORE INTO municipal_contracts ({columns}) VALUES ({placeholders})",
+                rows,
+            )
+        return self._conn.total_changes - before
+
+    def list_contract_buyers(self) -> list[str]:
+        """Every municipality whose catalogue is stored, alphabetically."""
+        return [
+            row[0]
+            for row in self._conn.execute(
+                "SELECT DISTINCT buyer_org FROM municipal_contracts ORDER BY buyer_org"
+            )
+        ]
+
 
 # -- row identity ------------------------------------------------------------
 
@@ -548,6 +621,59 @@ def payment_row_hash(
         _norm_text(source_url),
     )
     return hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
+
+
+def contract_row_hash(
+    buyer_org: str,
+    contract_ref: str | None,
+    supplier_name: str,
+    supplier_orgnr: str | None,
+    start_date: str | None,
+    end_date: str | None,
+) -> str:
+    """The stable identity of one catalogue row.
+
+    Keyed on the contract reference plus the supplier plus the term, because a
+    ranked framework repeats one reference across its suppliers and a renewed
+    contract repeats reference *and* supplier with a new end date. Dropping
+    either would silently collapse rows that are genuinely different places.
+    """
+    parts = (
+        _norm_text(buyer_org),
+        _norm_text(contract_ref),
+        normalize_orgnr(supplier_orgnr) or _norm_text(supplier_name),
+        _norm_text(start_date),
+        _norm_text(end_date),
+    )
+    return hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
+
+
+def _contract_values(contract: MunicipalContract) -> tuple[Any, ...]:
+    row_hash = contract.row_hash or contract_row_hash(
+        contract.buyer_org,
+        contract.contract_ref,
+        contract.supplier_name,
+        contract.supplier_orgnr,
+        contract.start_date,
+        contract.end_date,
+    )
+    return (
+        contract.buyer_org,
+        contract.buyer_orgnr,
+        contract.contract_ref,
+        contract.title,
+        contract.category,
+        contract.supplier_name,
+        normalize_orgnr(contract.supplier_orgnr) or contract.supplier_orgnr,
+        contract.start_date,
+        contract.end_date,
+        contract.rank,
+        contract.cap_value_sek,
+        contract.source,
+        contract.source_file,
+        row_hash,
+        contract.ingested_at or _utc_now(),
+    )
 
 
 def _norm_text(value: str | None) -> str:

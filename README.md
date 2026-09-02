@@ -52,6 +52,7 @@ src/tender_scan/
 ├── utilization.py  # M5: the utilization view and the report
 ├── prospects.py    # M6: suppliers sitting on several frameworks
 ├── foia.py         # M3: offentlighetsprincipen requests and their deadlines
+├── municipal.py    # M7: the catalogues and ledgers records requests actually return
 └── logging_setup.py
 ```
 
@@ -99,6 +100,15 @@ tender-scan foia ingest 1 svar.csv
 tender-scan foia ingest 7 svar.xlsx --partial   # part of it arrived; keep chasing the rest
 ```
 
+```bash
+# 7. What comes back: one reader per delivered format, then the pair they make
+tender-scan kommun sources
+tender-scan kommun ingest goteborg "Avtal 20230101-20260901.xlsx"
+tender-scan kommun ingest boras "Öppna data 2025.xlsx" --ledger
+tender-scan kommun list
+tender-scan kommun rapport "Bjurholms kommun"
+```
+
 `foia_requests` is the record of truth for where each request stands — `foia due` reads it and nothing else. A sheet is an input to it via `foia import`, never a parallel copy of it.
 
 `foia note` records what no other field captures. The common case is an acknowledgement: almost every registrator replies "vi har mottagit din begäran" long before a document arrives. That does not settle the request, so the status stays `sent` and the clock keeps running — but it is worth keeping, because it is the proof of receipt an escalation rests on, and because a silent authority and one that acknowledged then went quiet call for different wording in the reminder.
@@ -132,6 +142,42 @@ published in a structured eForms field for 94 of them and stated in prose for
 one more, so 95 of 137 (69 %) get a ceiling and the remaining 42 go to the
 manual review queue. Those 137 notices carry 1 771 award rows across 460
 distinct suppliers, 99.5 % of them with a Luhn-valid organisationsnummer.
+
+## Municipal catalogues and ledgers (M7)
+
+A records request does not return a TED notice. It returns a municipality's own
+**avtalskatalog** — one row per supplier per contract — and its
+**leverantörsreskontra** — one row per invoice. Held together, the pair measures
+what no open source publishes: how much of a municipality's spend reaches the
+suppliers it signed contracts with, and how many of those suppliers get nothing.
+
+Five municipalities answered the same request with five formats: an e-avrop
+matrix with its header on row four, a Mercell export with the contract term
+merged into one free-text column, a contract system's PDF, and two spreadsheets
+whose column names agree on nothing. Each reader owns its format; nothing
+downstream branches on which municipality a row came from.
+
+### The rules the numbers obey
+
+- **A rate needs both halves.** `avtalstrohet` is computed only for a buyer whose
+  catalogue *and* ledger are stored, and always printed next to the ledger's own
+  window. A catalogue with no ledger shows a dash, never a rate divided by nothing.
+- **Only a complete ledger can be a denominator.** M4's `open_data` rows are
+  filtered to framework winners before they are stored, so every one of them is
+  contracted by construction. M7 reads `source = 'foia'` rows and no others.
+- **Silence needs a year.** Below twelve months of ledger, "this supplier was paid
+  nothing" describes the window, not the supplier, so the zero-call-off share is
+  withheld rather than printed.
+- **A catalogue is not a census.** Grästorp put it in writing: their database holds
+  mainly framework agreements and omits construction procurements, direct awards
+  and several central-body agreements. Spend outside a catalogue is therefore not
+  proof of maverick buying, and every report says so.
+
+Measured on the first batch: 9 790 contract rows from five municipalities and
+11.1 bn SEK of ledger from two. One municipality delivered both halves —
+Bjurholm, where contracted suppliers received 25.3 % of the spend over 22 months,
+and half of the suppliers holding a live contract outside health and social care
+were paid nothing at all.
 
 ## Quickstart
 
@@ -193,6 +239,8 @@ Serves a read-only, mobile-friendly site. No auth — meant for private networks
 | --- | --- |
 | `/` | The utilisation dashboard: every framework agreement with its ceiling, observed spend, both utilisation rates and both coverage figures, largest observed spend first |
 | `/ramavtal/<notice_id>` | The full M5 report for one agreement — the same text `tender-scan utnyttjandegrad rapport` prints, rendered by the same function so the two cannot drift apart |
+| `/kommuner` | The municipal catalogues and ledgers records requests returned (M7), and what each pair can measure |
+| `/kommun/<namn>` | One municipality's suppliers, including the ones holding a live contract with no call-off |
 | `/prospekt` | Suppliers sitting on several framework agreements (M6) |
 | `/notiser` | The stored notice list |
 

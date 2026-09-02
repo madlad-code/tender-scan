@@ -7,6 +7,10 @@ tailnet), not for public exposure. Four pages:
   the spend we can actually see, and the coverage that qualifies it.
 * `/ramavtal/<notice_id>` — the full M5 report for one agreement, rendered by
   `utilization.render_markdown` so the page and the CLI cannot drift apart.
+* `/kommuner` — the municipal catalogues and ledgers records requests returned
+  (M7), and for each one what the pair can actually measure.
+* `/kommun/<namn>` — one municipality's suppliers, the ones with a live contract
+  and no call-off included.
 * `/prospekt` — suppliers sitting on several frameworks (M6).
 * `/notiser` — the raw notice list this module started as.
 
@@ -17,6 +21,10 @@ table, so the caveat cannot travel as a paragraph the way it does in the
 report; instead every row carries its own coverage cells, and a test asserts
 that no row renders a rate without them. A reader who sorts by "grad" and stops
 reading has still seen how much of the picture is missing.
+
+The municipal pages inherit it: no avtalstrohet without the ledger window it
+was measured over, and a municipality whose catalogue arrived without a ledger
+shows dashes rather than a rate computed against nothing.
 """
 
 from __future__ import annotations
@@ -24,9 +32,9 @@ from __future__ import annotations
 import html
 import sqlite3
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
-from tender_scan import prospects, utilization
+from tender_scan import municipal, prospects, utilization
 from tender_scan.models import Notice, format_estimated_value
 from tender_scan.storage import Storage
 
@@ -105,6 +113,7 @@ _PAGE = """<!doctype html>
 
 _NAV = (
     ("/", "Utnyttjandegrad"),
+    ("/kommuner", "Kommuner"),
     ("/prospekt", "Prospekt"),
     ("/notiser", "Notiser"),
 )
@@ -275,6 +284,130 @@ def render_prospects(found: list[prospects.Prospect]) -> str:
     )
 
 
+# -- municipalities (M7) -----------------------------------------------------
+
+_KOMMUN_HEAD = (
+    "<tr><th>Kommun</th><th>Avtalsrader</th><th>Leverantörer</th>"
+    "<th>Reskontra</th><th>Period</th><th>Månader</th>"
+    "<th>Avtalstrohet</th><th>Utan avrop</th></tr>"
+)
+
+_KOMMUN_NOTE = (
+    '<p class="meta">Avtalstrohet = andelen av reskontrans belopp som gick till '
+    "leverantörer som finns i kommunens egen avtalskatalog. Den visas bara för "
+    "kommuner som lämnat ut <em>båda</em> handlingarna, och alltid tillsammans med "
+    "reskontrans period — en kommun som lämnat katalogen men inte reskontran får "
+    "streck, inte en siffra räknad mot ingenting. "
+    "Utan avrop = leverantörer vars avtal löpte under perioden och som ändå inte "
+    "fick en krona; den kräver minst "
+    f"{municipal.MIN_ZERO_MONTHS} månaders reskontra.</p>"
+)
+
+
+def _pct(value: float | None) -> str:
+    return utilization.pct(value) if value is not None else "–"
+
+
+def render_kommuner(rows: list[municipal.Kommun]) -> str:
+    """Every municipality a records request has delivered something for."""
+    if not rows:
+        body = (
+            '<div class="empty">Inga kommunhandlingar inlästa. Kör '
+            "<code>tender-scan kommun ingest</code>.</div>"
+        )
+        return _page(
+            title="tender-scan — kommuner",
+            heading="Kommuner",
+            meta="0 kommuner",
+            body=body,
+            current="/kommuner",
+        )
+    measurable = [k for k in rows if k.avtalstrohet is not None]
+    tiles = "".join(
+        (
+            _tile(len(rows), "kommuner"),
+            _tile(sum(k.contract_rows for k in rows), "avtalsrader"),
+            _tile(utilization.sek(sum(k.ledger_total_sek for k in rows)), "reskontra"),
+            _tile(len(measurable), "med båda handlingarna"),
+        )
+    )
+    body_rows = "\n".join(
+        "<tr>"
+        f'<td><a href="/kommun/{quote(k.buyer_org)}">{esc(k.buyer_org)}</a></td>'
+        f'<td class="num">{esc(k.contract_rows or None)}</td>'
+        f'<td class="num">{esc(k.contract_suppliers or None)}</td>'
+        f'<td class="num">{esc(_money(k.ledger_total_sek))}</td>'
+        f"<td>{esc(_window(k))}</td>"
+        f'<td class="num">{esc(k.ledger_months or None)}</td>'
+        f'<td class="num">{_pct(k.avtalstrohet)}</td>'
+        f'<td class="num">{_pct(k.zero_calloff_rate)}</td>'
+        "</tr>"
+        for k in rows
+    )
+    table = f'<div class="wrap"><table>{_KOMMUN_HEAD}{body_rows}</table></div>'
+    body = f'<div class="tiles">{tiles}</div>{_KOMMUN_NOTE}{table}'
+    return _page(
+        title="tender-scan — kommuner",
+        heading="Kommuner",
+        meta=f"{len(rows)} kommuner, {len(measurable)} där avtal och reskontra kan jämföras",
+        body=body,
+        current="/kommuner",
+    )
+
+
+def _money(amount: int) -> str | None:
+    """A SEK amount, or None so an empty ledger renders as a dash not `0 SEK`."""
+    return utilization.sek(amount) if amount else None
+
+
+def _window(k: municipal.Kommun) -> str | None:
+    if k.ledger_window is None:
+        return None
+    return f"{k.ledger_window[0][:7]} – {k.ledger_window[1][:7]}"
+
+
+_SUPPLIER_HEAD = (
+    "<tr><th>Leverantör</th><th>Orgnr</th><th>Avtal</th><th>Rang</th>"
+    "<th>Avtal t.o.m.</th><th>Kategori</th><th>Fakturerat</th><th>Månader</th></tr>"
+)
+
+
+def render_kommun(k: municipal.Kommun, rows: list[municipal.SupplierRow]) -> str:
+    """One municipality: the tiles, the caveats it carries, and its suppliers."""
+    zero = [r for r in rows if r.contracts and r.active and not r.paid_sek]
+    tiles = "".join(
+        (
+            _tile(k.contract_rows, "avtalsrader"),
+            _tile(k.active_suppliers or None, "lev. med gällande avtal"),
+            _tile(_money(k.ledger_total_sek) or "–", "fakturerat"),
+            _tile(_pct(k.avtalstrohet), "avtalstrohet"),
+            _tile(len(zero) if k.zero_calloff is not None else "–", "avtal utan avrop"),
+        )
+    )
+    caveats = "".join(f'<p class="meta">{esc(c)}</p>' for c in k.caveats)
+    body_rows = "\n".join(
+        "<tr>"
+        f"<td>{esc(_clip(r.supplier_name, 52))}</td>"
+        f"<td>{esc(r.supplier_orgnr)}</td>"
+        f'<td class="num">{esc(r.contracts or None)}</td>'
+        f'<td class="num">{esc(r.rank)}</td>'
+        f"<td>{esc(r.latest_end)}</td>"
+        f"<td>{esc(_clip(', '.join(r.categories), 40))}</td>"
+        f'<td class="num">{esc(_money(r.paid_sek))}</td>'
+        f'<td class="num">{esc(r.months_paid or None)}</td>'
+        "</tr>"
+        for r in rows
+    )
+    table = f'<div class="wrap"><table>{_SUPPLIER_HEAD}{body_rows}</table></div>'
+    return _page(
+        title=f"tender-scan — {k.buyer_org}",
+        heading=k.buyer_org,
+        meta=f"{len(rows)} leverantörer, störst fakturerat belopp först",
+        body=f'<div class="tiles">{tiles}</div>{caveats}{table}',
+        current="/kommuner",
+    )
+
+
 # -- notices -----------------------------------------------------------------
 
 _CARD = """<div class="card">
@@ -338,6 +471,14 @@ def route(storage: Storage, path: str) -> str | None:
     conn = storage.connection()
     if path in ("/", "/index.html"):
         return render_dashboard(utilization.load_all(conn))
+    if path == "/kommuner":
+        return render_kommuner(municipal.load_kommuner(conn))
+    if path.startswith("/kommun/"):
+        buyer = unquote(path[len("/kommun/") :])
+        found = [k for k in municipal.load_kommuner(conn) if k.buyer_org == buyer]
+        if not found:
+            return None
+        return render_kommun(found[0], municipal.load_suppliers(conn, buyer, limit=500))
     if path == "/prospekt":
         return render_prospects(prospects.find(conn))
     if path == "/notiser":

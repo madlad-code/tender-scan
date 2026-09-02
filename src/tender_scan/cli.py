@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 
 import typer
 
-from tender_scan import foia, prospects, utilization
+from tender_scan import foia, municipal, prospects, utilization
 from tender_scan import report as report_module
 from tender_scan.eforms import DEFAULT_CACHE_DIR, EformsError, notice_text, parse_graph
 from tender_scan.frameworks import extract_framework, named_buyers, needs_review, validate
@@ -799,4 +800,120 @@ def foia_ingest(
         typer.echo(
             "Nästa steg: läs in beloppen i supplier_payments (source='foia') så att "
             "de räknas in i utnyttjandegraden."
+        )
+
+
+# -- M7: municipal catalogues and ledgers ------------------------------------
+
+kommun_app = typer.Typer(
+    help="Municipal contract catalogues and supplier ledgers from records requests.",
+    no_args_is_help=True,
+)
+app.add_typer(kommun_app, name="kommun")
+
+
+@kommun_app.command("sources")
+def kommun_sources() -> None:
+    """List the readers, one per delivered file format."""
+    typer.echo("avtalskataloger:")
+    for key, cat in municipal.CATALOGUES.items():
+        typer.echo(f"  {key:10} {cat.buyer_org:20} {cat.label}")
+    typer.echo("reskontror:")
+    for key, ledger in municipal.LEDGERS.items():
+        typer.echo(f"  {key:10} {ledger.buyer_org:20} {ledger.label}")
+
+
+@kommun_app.command("ingest")
+def kommun_ingest(
+    source: str = typer.Argument(..., help="Reader key, from `kommun sources`"),
+    path: Path = typer.Argument(..., help="The file the municipality sent back"),
+    ledger: bool = typer.Option(
+        False, "--ledger", help="Read as a supplier ledger, not a catalogue"
+    ),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report counts and write nothing"),
+) -> None:
+    """Read one delivered file into the database.
+
+    Re-reading the same file adds nothing: both tables are keyed on a content
+    hash, so an accidental second ingest is a no-op rather than a doubling.
+    """
+    registry = municipal.LEDGERS if ledger else municipal.CATALOGUES
+    if source not in registry:
+        kind = "reskontra" if ledger else "avtalskatalog"
+        raise typer.BadParameter(f"okänd {kind}-källa {source!r}; välj en av {', '.join(registry)}")
+    reader = registry[source]
+    try:
+        rows = reader.read(path.read_bytes())
+    except municipal.ReaderError as exc:
+        typer.echo(f"Kunde inte läsa {path}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    if dry_run:
+        typer.echo(f"{path.name}: {len(rows)} rader från {reader.buyer_org} (inget skrivet).")
+        return
+    with Storage(db) as storage:
+        if ledger:
+            added = storage.insert_payments(replace(row, source_url=path.name) for row in rows)
+        else:
+            added = storage.insert_contracts(replace(row, source_file=path.name) for row in rows)
+    typer.echo(f"{path.name}: {len(rows)} rader lästa, {added} nya i databasen.")
+
+
+@kommun_app.command("list")
+def kommun_list(
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """One line per municipality: what is stored and what it can measure."""
+    with Storage(db) as storage:
+        rows = municipal.load_kommuner(storage.connection())
+    if not rows:
+        typer.echo("Inga kommuner inlästa. Kör `tender-scan kommun ingest`.")
+        return
+    for k in rows:
+        rate = utilization.pct(k.avtalstrohet) if k.avtalstrohet is not None else "–"
+        zero = utilization.pct(k.zero_calloff_rate) if k.zero_calloff_rate is not None else "–"
+        window = f"{k.ledger_window[0][:7]}..{k.ledger_window[1][:7]}" if k.ledger_window else "–"
+        typer.echo(
+            f"{k.buyer_org:22} avtal {k.contract_rows:>5}  "
+            f"reskontra {utilization.sek(k.ledger_total_sek):>16}  "
+            f"period {window:<16} avtalstrohet {rate:>6}  utan avrop {zero:>6}"
+        )
+
+
+@kommun_app.command("rapport")
+def kommun_rapport(
+    buyer: str = typer.Argument(..., help="Municipality name, as `kommun list` prints it"),
+    limit: int = typer.Option(25, help="How many suppliers to print"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """The suppliers of one municipality, biggest paid first."""
+    with Storage(db) as storage:
+        conn = storage.connection()
+        found = [k for k in municipal.load_kommuner(conn) if k.buyer_org == buyer]
+        if not found:
+            typer.echo(f"Ingen data för {buyer!r}.", err=True)
+            raise typer.Exit(code=1)
+        k = found[0]
+        rows = municipal.load_suppliers(conn, buyer, limit=limit)
+    typer.echo(f"# {buyer}\n")
+    typer.echo(f"Avtalsrader: {k.contract_rows} ({k.contract_suppliers} leverantörer)")
+    typer.echo(
+        f"Reskontra: {utilization.sek(k.ledger_total_sek)} över {k.ledger_suppliers} leverantörer"
+    )
+    if k.avtalstrohet is not None:
+        typer.echo(f"Avtalstrohet: {utilization.pct(k.avtalstrohet)}")
+        typer.echo(
+            f"Leverantörer med gällande avtal och noll avrop: "
+            f"{k.zero_calloff} av {k.active_suppliers} "
+            f"({utilization.pct(k.zero_calloff_rate)})"
+        )
+    for caveat in k.caveats:
+        typer.echo(f"\n> {caveat}")
+    typer.echo("")
+    for row in rows:
+        mark = "avtal" if row.contracts else "–"
+        typer.echo(
+            f"{utilization.sek(row.paid_sek):>16}  {mark:<6} {row.supplier_name[:44]:<46}"
+            f"{row.supplier_orgnr or '':<14}{row.latest_end or ''}"
         )

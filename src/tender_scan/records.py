@@ -93,3 +93,31 @@ class FoiaRequest:
     response_received_at: str | None = None
     response_file_path: str | None = None
     notes: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MunicipalContract:
+    """One supplier's place on one contract in a municipality's own catalogue.
+
+    The row a records request returns, not one TED published: a municipality's
+    contract database lists direct awards, call-off agreements and framework
+    places side by side, and only some of them ever reached a notice. One row
+    per supplier per contract, so a ranked framework with eight suppliers is
+    eight rows sharing a `contract_ref`.
+    """
+
+    buyer_org: str
+    supplier_name: str
+    buyer_orgnr: str | None = None
+    contract_ref: str | None = None
+    title: str | None = None
+    category: str | None = None
+    supplier_orgnr: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    rank: int | None = None
+    cap_value_sek: int | None = None
+    source: str = "foia"
+    source_file: str | None = None
+    row_hash: str | None = None  # storage computes it when None
+    ingested_at: str | None = None
