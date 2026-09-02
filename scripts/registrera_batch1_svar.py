@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Registrera batch 1:s Gmail-svar i `foia_requests`.
 
-Svaren lästes i Gmail 2026-08-31 22:50 UTC och igen 2026-09-01 09:19 UTC, av
-sessioner som körde i en molnbehållare — utan databasen, som bor på Oscars
+Svaren lästes i Gmail 2026-08-31 22:50, 2026-09-01 09:19 och 2026-09-02 09:12
+UTC, av sessioner som körde i en molnbehållare — utan databasen, som bor på Oscars
 maskin. Fynden kan därför inte skrivas där de hör hemma i samma andetag som de
 görs. Den här filen är bryggan: den bär avläsningen i versionshanterad form
 tills någon kör den på maskinen som har databasen.
@@ -21,12 +21,12 @@ Inget av svaren är ett avslag, och inget är en fullständig leverans. Skriptet
 skriver därför bara `notes`, via `tender-scan foia note`, och rör aldrig något
 statusfält.
 
-Två kommuner har ändå skickat handlingar: Huddinge avtalskatalogen, Göteborg
-sin avtalssammanställning. Båda gäller punkt 1 av två, och båda filerna ska in
-med `tender-scan foia ingest <id> <fil> --partial` — `--partial` för att den
-andra halvan fortfarande fattas och klockan måste gå vidare. Det görs för hand,
-när filerna ligger sparade på disk, och inte härifrån: skriptet vet inte var de
-hamnade.
+Sex kommuner har ändå skickat handlingar — nio filer, drygt 100 MB. Hämta dem
+med `scripts/hamta_bilagor.py` och registrera dem sedan med
+`tender-scan foia ingest <id> <fil> --partial`. `--partial` för alla utom
+Bjurholm, som är den enda som besvarat båda punkterna; för de övriga fattas en
+halva och klockan måste gå vidare. Det görs för hand, när filerna ligger på
+disk, och inte härifrån: skriptet vet inte var de hamnade.
 
 ## Körning
 
@@ -142,6 +142,83 @@ NOTERINGAR: list[tuple[str, str, str]] = [
         "svar 2026-08-31 — automatiskt svar från kommunstyrelsens diarium (09:16 UTC). "
         "Inget diarienummer angivet. Inga handlingar ännu.",
     ),
+    # --- svar 2026-09-01 eftermiddag och 2026-09-02 -------------------------
+    (
+        "bjurholm",
+        "bjurholm",
+        "svar 2026-09-01 09:36 UTC — Maria Egelby, ekonomichef, vidarebefordrade begäran "
+        "med två filer bifogade: 'Avtalsstatistik_09011048.xls' och "
+        "'Leverantörsreskontraöversikt.xlsx'. Det är den enda kommun i batch 1 som "
+        "besvarat båda punkterna i ett svep. Inget följebrev, så vilken period "
+        "reskontrafilen täcker går inte att se utan att öppna den — kontrollera det "
+        "innan begäran räknas som helt besvarad.",
+    ),
+    (
+        "borås",
+        "borås-2",
+        "svar 2026-09-01 14:36, 14:37 och 14:39 UTC — Helena Hurdén, ekonom på "
+        "redovisningsenheten, besvarar punkt 2 och skickar leverantörsreskontran som "
+        "öppna data, ett år per mejl för att inte spränga storleksgränsen: "
+        "'Öppna data 2023.xlsx', 'Öppna data 2024.xlsx', 'Öppna data 2025.xlsx' "
+        "(27–29 MB styck). Perioden 2026-01-01–2026-08-31 kan levereras först "
+        "2026-09-09, då filen tas fram av en datumstyrd automatisk händelse. "
+        "Punkt 1, avtalskatalogen, ligger kvar hos koncerninköp och är obesvarad.",
+    ),
+    (
+        "jönköping",
+        "jönköping-2",
+        "svar 2026-09-01 10:18 UTC — Roger Svensson, sekretesshandläggare på "
+        "stadskontoret, bifogar 'SH ContractExport 26091.pdf' med avtal för den "
+        "efterfrågade tiden. Kommunen inför just nu en ny avtalsdatabas, så filen är "
+        "vad ett automatiserat registerutdrag kan ge i dagsläget. Ekonomiavdelningen "
+        "besvarar leverantörsreskontran separat. Halv leverans, och i PDF i stället "
+        "för det maskinläsbara format som begärdes.",
+    ),
+    (
+        "grästorp",
+        "grästorp-2",
+        "svar 2026-09-01 11:34 UTC — kansli- och serviceenheten bifogar "
+        "'Avtalsdatabasen 20260616.xlsx' som en nulägesbild, och skriver att det inte "
+        "finns några upprättade handlingar som motsvarar punkt 1. Avtalsdatabasen "
+        "omfattar inte kommunens samtliga avtal: entreprenadupphandlingar, "
+        "direktupphandlingar, vissa Adda- och Sinfra-avtal samt engångsinköp saknas. "
+        "Punkt 2 är inte besvarad. Filen är alltså ett svar med en uttalad "
+        "täckningsbegränsning, inte en fullständig avtalskatalog.",
+    ),
+    (
+        "katrineholm",
+        "katrineholm",
+        "svar 2026-09-01 12:46 UTC — Ann-Kristin Löfstig Panzar, upphandlingskoordinator: "
+        "begäran mottagen och sekretessprövning pågår. Katrineholm var tyst vid de två "
+        "första genomgångarna av inkorgen.",
+    ),
+    (
+        "katrineholm",
+        "katrineholm-2",
+        "svar 2026-09-02 08:46 UTC — Katrineholm tar ut avgift enligt avgiftsförordningen "
+        "för elektroniska dokument och uppskattar 10–16 stora filer. Taxan skickades som "
+        "en bild i mejlet, så beloppet går inte att läsa ur texten. Kommunen ber om "
+        "fakturaadress innan de går vidare. Ingen faktura är begärd och inget är betalt.",
+    ),
+    (
+        "gävle",
+        "gävle-3",
+        "svar 2026-09-01 09:28 UTC — Åsa Lindberg, ärende KC2026137233: uttagen är "
+        "'ett gigantiskt jobb', delårsbokslutet har prio 1 och materialet måste "
+        "sekretessgranskas. Återkommer efter delårsbokslutet. Ingen tidpunkt utlovad "
+        "och ingen avgift nämnd.",
+    ),
+    (
+        "haninge",
+        "haninge-2",
+        "svar 2026-09-02 08:47 UTC — Upphandling Södertörn, som upphandlar åt Haninge, "
+        "från inkop@upphandlingsodertorn.se med Request ID RE-700008093 och ärende "
+        "2026HAN19344: begäran bekräftad som omfattande, handläggningen tar tid, och "
+        "utlämnandet är förenat med kostnad. Avgiftsinformationen bifogades som "
+        "'Information till dig som önskar ta del av handlingar v 3.0.pdf'. "
+        "Registraturen har delat begäran: upphandling tar avtalsdatabasen, "
+        "leverantörsfaktura tar reskontran. Inget belopp ännu.",
+    ),
     # --- svar som kom under natten till 2026-09-01 --------------------------
     (
         "göteborg",
@@ -188,17 +265,15 @@ NOTERINGAR: list[tuple[str, str, str]] = [
     ),
 ]
 
-# Searched in Gmail on 2026-08-31 22:50 UTC and again on 2026-09-01 09:19 UTC,
-# and found to have sent nothing at all — not even an autoreply. Listed so the
-# reader can see that the notes above are fifteen of twenty, and that the
-# absence was checked rather than assumed. Göteborg, Härnösand and Karlstad
-# were on this list yesterday and answered overnight, which is the argument for
+# Searched in Gmail on 2026-08-31 22:50, 2026-09-01 09:19 and 2026-09-02 09:12
+# UTC, and found to have sent nothing at all — not even an autoreply. Listed so
+# the reader can see that the notes above are seventeen of twenty, and that the
+# absence was checked rather than assumed. The list has shrunk from eight to
+# five to three as kommuner answered between readings, which is the argument for
 # re-reading the inbox before sending a reminder rather than after.
 TYSTA = (
     "Eskilstuna kommun",
-    "Katrineholms kommun",
     "Aneby kommun",
-    "Bjurholms kommun",
     "Dorotea kommun",
 )
 
@@ -287,11 +362,12 @@ def main() -> int:
     else:
         print(f"{len(NOTERINGAR) - hoppade - saknade} skulle antecknas. Kör om med --live.")
     print(
-        "\nTvå kommuner har skickat handlingar. Spara filerna och registrera dem med\n"
-        "--partial, så att den halva som fattas fortsätter jagas:\n"
-        "  tender-scan foia ingest <id> Avtalskatalogen.xlsx --partial           # Huddinge\n"
-        "  tender-scan foia ingest <id> 'Avtal 20230101-20260901.xlsx' --partial # Göteborg\n"
-        "Utan --partial sätts status till received och `foia due` slutar lista dem."
+        "\nSex kommuner har skickat handlingar. Hämta filerna först:\n"
+        "  python3 scripts/hamta_bilagor.py --live\n"
+        "Registrera dem sedan. Bjurholm har besvarat båda punkterna och kan stängas;\n"
+        "övriga behöver --partial, annars slutar `foia due` jaga den halva som fattas:\n"
+        "  tender-scan foia ingest <id> data/foia-svar/bjurholm__*.xlsx\n"
+        "  tender-scan foia ingest <id> data/foia-svar/<fil> --partial   # övriga fem"
     )
     return 0
 

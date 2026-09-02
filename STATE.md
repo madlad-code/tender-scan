@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-08-31 23:38 UTC._
+_Genererad 2026-09-02 09:12 UTC._
 
 ## Planen och kontakterna
 
@@ -16,18 +16,17 @@ _Den här delen skrivs aldrig över av generatorn. Håll den kort och ärlig._
 - **Läge:** M0–M6 klara och testade. Hela kedjan finns i kod: takvolym ur notisen →
   vinnare → betalningar matchade på både leverantör och betalande köpare →
   utnyttjandegrad med täckningsgrad.
-- **Batch 1 är ute och inkorgen är läst två gånger.** 20 kommuner mejlade
-  2026-08-31. Gmail genomsökt 2026-08-31 22:50 och 2026-09-01 09:19 UTC:
-  **15 av 20 har svarat, 5 är helt tysta.** Tre av gårdagens tysta — Göteborg,
-  Härnösand, Karlstad — svarade under natten, vilket är argumentet för att läsa
-  inkorgen strax före en påminnelse och inte dagen innan.
-  **Två kommuner har skickat handlingar:** Huddinge avtalskatalogen, Göteborg
-  sin avtalssammanställning. Båda gäller punkt 1 av två.
+- **Batch 1 är ute och inkorgen är läst tre gånger.** 20 kommuner mejlade
+  2026-08-31. Senast genomsökt 2026-09-02 09:12 UTC: **17 av 20 har svarat,
+  3 är helt tysta** (Eskilstuna, Aneby, Dorotea).
+  **6 kommuner har skickat handlingar — 9 filer, drygt 100 MB.** En kommun,
+  Bjurholm, har besvarat båda punkterna; fem har besvarat en av två.
   Dag 3 (påminnelse) förfaller 2026-09-03 — kör `tender-scan foia due`.
-- **Avläsningen är ännu inte i databasen.** Sessionen som läste Gmail körde i en
-  molnbehållare utan `data/tender_scan.db`. Fynden ligger i
-  `scripts/registrera_batch1_svar.py` och skrivs in med `--live` på maskinen som
-  har databasen. Tills dess är `foia_requests` orört.
+- **Filerna ligger kvar i Gmail.** Sessionerna som läst inkorgen har inget
+  verktyg för att hämta bilagor, och Borås filer på 27–29 MB styck ska ändå
+  inte gå genom en modellkontext. `scripts/hamta_bilagor.py --live` hämtar dem
+  över IMAP med samma app-lösenord som `send_batch.py` redan använder, till
+  `data/foia-svar/` som är gitignorerad.
 - **Den bindande begränsningen är täckning, inte kod.** Av 137 ramavtal är
   **1** mätbart hela vägen (109559-2026, Göteborgs Stad) — och det på en enda
   månads fakturadata av 17 förflutna, alltså 5,9 % periodtäckning. Svaren på
@@ -73,66 +72,75 @@ Allt annat — säljmejl, samtal, möten — skrivs för hand här._
   lämnar maskinen utan att du startat det.
 ### Vad batch 1 faktiskt svarade
 
-Läst i Gmail 2026-08-31 22:50 UTC och igen 2026-09-01 09:19 UTC. Alla 20
-utskicken finns i `Skickat` (09:15–09:18 UTC 2026-08-31), så ingen begäran
-fastnade i utkorgen och ingen studsade.
+Läst i Gmail 2026-08-31 22:50, 2026-09-01 09:19 och 2026-09-02 09:12 UTC. Alla
+20 utskicken finns i `Skickat`; ingen begäran studsade.
 
-| Kommun | Svar | Diarienummer |
+**17 av 20 har svarat. 3 är tysta:** Eskilstuna, Aneby, Dorotea.
+
+#### Levererat handlingar — 6 kommuner, 9 filer
+
+| Kommun | Fil | Punkt | Läge |
+| --- | --- | --- | --- |
+| Bjurholm | `Avtalsstatistik_09011048.xls` + `Leverantörsreskontraöversikt.xlsx` | 1 **och** 2 | **Enda fullständiga svaret.** Inget följebrev — kontrollera vilken period reskontran täcker innan den räknas som klar |
+| Borås | `Öppna data 2023/2024/2025.xlsx` (27–29 MB st) | 2 | 2026-01-01–08-31 kommer 2026-09-09. Punkt 1 ligger kvar hos koncerninköp |
+| Göteborg | `Avtal 20230101-20260901.xlsx` | 1 | Punkt 2 hänvisad till stadens öppna data, årsvis |
+| Huddinge | `Avtalskatalogen.xlsx` | 1 | Ekonomienheten svarar separat om reskontran |
+| Jönköping | `SH ContractExport 26091.pdf` | 1 | PDF, inte maskinläsbart. Ny avtalsdatabas införs; ekonomiavdelningen tar punkt 2 |
+| Grästorp | `Avtalsdatabasen 20260616.xlsx` | 1 | Nulägesbild. Kommunen skriver att inga handlingar motsvarar punkt 1, och att databasen saknar entreprenad, direktupphandling, delar av Adda och Sinfra |
+
+#### Vill ha betalt — 4 kommuner, plus 1 villkorat
+
+| Kommun | Belopp | Läge |
 | --- | --- | --- |
-| Göteborg | **`Avtal 20230101-20260901.xlsx` bifogad** 09-01; punkt 2 hänvisad till stadens öppna data, årsvis | – |
-| Huddinge | **`Avtalskatalogen.xlsx` bifogad** 08-31; ekonomienheten svarar separat om reskontran | 2026SC66301 |
-| Hässleholm | **Avgift 161 kr** för ca 19 filer; Oscar accepterade 08-31 22:16 och bad om betalningsinstruktion | – |
-| Härnösand | Bekräftat 09-01; **kostnad utlovad, exakt summa meddelas senare** | – |
-| Falun | Bekräftat; sekretessbedömning av leverantörsfakturor kan dra ut på tiden, kostnad kan tillkomma | FK-2608-11504 |
-| Haninge | Bekräftat; avgift kan tas ut, alternativt läsning på plats gratis | 2026HAN19344 |
-| Karlstad | Automatisk bekräftelse 09-01 | K202699134 |
-| Enköping | Bekräftat, vidare till kommunledningsförvaltningen | KC202639332 |
-| Helsingborg | Bekräftat, vidare till berörd förvaltning | KC-#254868 |
-| Gävle | Bekräftat två gånger, med **två skilda ärendenummer** för samma begäran | KC2026136671, KC2026137233 |
-| Borås | Bekräftat, vidare till koncerninköp och leverantörsreskontra | – |
-| Kalmar | Bekräftat, vidarebefordrat för handläggning | – |
-| Jönköping | Automatisk bekräftelse | – |
-| Halmstad | Automatiskt svar från diariet | – |
-| Grästorp | Autosvar | – |
+| Hässleholm | **161 kr** för ca 19 filer | Accepterat 08-31 22:16, väntar på betalningsinstruktion |
+| Katrineholm | Enligt avgiftsförordningen, 10–16 stora filer | Taxan skickades som **bild**, beloppet går inte att läsa ur texten. Vill ha fakturaadress |
+| Härnösand | Utlovad, ej angiven | "Vi återkommer om en exakt summa" |
+| Haninge | Utlovad, ej angiven | Via Upphandling Södertörn; avgiftsinfo som PDF, RE-700008093 |
+| Falun | *Kan* tillkomma | Villkorat av mängd; sekretessbedömning pågår |
 
-**Helt tysta (5):** Eskilstuna, Katrineholm, Aneby, Bjurholm, Dorotea.
+#### Bekräftat, inget mer
 
-Ingen har avslagit. Ingen har levererat allt. De två som skickat filer har
-skickat punkt 1 och lämnat punkt 2 öppen, vilket är exakt vad `partial` finns
-för — och `foia ingest` har nu ett `--partial` som registrerar filen utan att
-stänga klockan.
+Helsingborg, Kalmar, Karlstad, Halmstad, Enköping, Gävle. Gävle har uttryckligen
+sagt ifrån: uttaget är "ett gigantiskt jobb", delårsbokslutet har prio 1, och de
+återkommer efter det.
 
-**Göteborg är den intressanta.** Diariet skriver att hela stadens
-leverantörsreskontra ligger årsvis på stadens öppna data. Projektet mäter i dag
-Göteborg på **en månad av 17**, alltså 5,9 % periodtäckning, och det är den
-siffra som binder hela analysen. Stämmer hänvisningen finns resten redan
-publicerad. Det är inte verifierat — länken ligger i anteckningen på Göteborgs
-rad — och att kontrollera den är förmodligen den enskilt mest värdefulla
-timmen som går att lägga just nu.
+#### Vad som är värt att notera
 
-### NÄSTA JOBB: skriv in avläsningen, kontrollera Göteborgs öppna data
+**Ingen har avslagit.** Grästorp kommer närmast, men skickar ändå det som finns
+och förklarar vad databasen saknar — det är en täckningsbegränsning, inte ett
+avslag, och den sortens ärlighet är mer användbar än ett tomt nej.
+
+**Öppna data dyker upp två gånger.** Göteborg hänvisar till sin sida, Borås
+skickar sina filer och kallar dem "öppna data". Projektet mäter i dag Göteborg
+på en månad av 17 — 5,9 % periodtäckning, siffran som binder hela analysen.
+Två av tjugo kommuner säger alltså att materialet redan är publicerat. Det är
+fortfarande inte verifierat.
+
+**Avgifterna är små men trögheten är verklig.** 161 kr är inget hinder; att fyra
+kommuner vill fakturera och två av dem ännu inte satt ett belopp betyder att
+batchen inte blir klar av sig själv.
+
+### NÄSTA JOBB: hämta filerna, skriv in avläsningen, påminn dag 3
 
 På maskinen som har databasen, i den ordningen:
 
-1. **Registrera svaren.** `python3 scripts/registrera_batch1_svar.py` visar vad
-   som skulle skrivas; `--live` skriver. 16 anteckningar på 15 kommuner
-   (Gävle får två), ingen statusändring. Säker att köra om.
-2. **Spara de två bilagorna och registrera dem.** `Avtalskatalogen.xlsx` från
-   Katarina.Svardgren@huddinge.se (08-31 12:19 UTC) och
-   `Avtal 20230101-20260901.xlsx` från stadsledningskontoret i Göteborg
-   (09-01 07:49 UTC). Båda med **`--partial`**, annars sätts status till
-   `received` och `foia due` slutar jaga den halva som fattas.
-3. **Kontrollera Göteborgs öppna data-sida.** Täcker den 2023–2026 för
-   leverantörsfakturor? Om ja: läs in och se vad periodtäckningen blir när den
-   inte längre är 1/17. Om nej: återkom till diariet, som erbjudit sig att
-   lämna sammanställningen på annat sätt.
-4. **Dag 3, 2026-09-03.** `docs/paminnelse-mall.md` delar de 20 i fyra grupper
-   och har mallarna: 5 tysta får mall A, 10 som bekräftat får mall B, 4 där
-   arbete pågår ska ha ett riktat svar i befintlig tråd i stället, och Göteborg
-   ingen påminnelse alls. Registrera med `foia did <id> reminder_1`.
-5. **Hässleholm och Härnösand väntar på belopp.** Hässleholm: 161 kr accepterat,
-   ingen betalningsinstruktion. Härnösand: kostnad utlovad, ingen summa. Båda
-   ska ryckas i via sina egna trådar, inte via en allmän påminnelse.
+1. **Hämta de nio filerna.** `python3 scripts/hamta_bilagor.py` visar vad som
+   skulle hämtas; `--live` hämtar till `data/foia-svar/`. Kräver `GMAIL_USER`
+   och `GMAIL_APP_PASSWORD` — samma app-lösenord som `send_batch.py`.
+2. **Registrera svaren.** `python3 scripts/registrera_batch1_svar.py --live`.
+   24 anteckningar på 17 kommuner, ingen statusändring. Säker att köra om.
+3. **Registrera filerna.** Bjurholm kan stängas helt:
+   `foia ingest <id> <fil>`. Övriga fem behöver **`--partial`**, annars slutar
+   `foia due` jaga den halva som fattas.
+4. **Kontrollera de två öppna data-spåren.** Göteborgs sida, och vad Borås
+   faktiskt skickade. Täcker de 2023–2026 blir periodtäckningen en annan
+   siffra än 5,9 %, och det är den siffran hela säljargumentet vilar på.
+5. **Dag 3, 2026-09-03.** `docs/paminnelse-mall.md` har mallarna, men
+   **grupperna måste räknas om** — den skrevs när 5 var tysta och 4 arbetade;
+   nu är 3 tysta och 6 har levererat. Läs inkorgen igen precis innan utskick.
+6. **Pengaspåren.** Hässleholm (161 kr, väntar på instruktion), Katrineholm
+   (vill ha fakturaadress, belopp i en bild), Härnösand och Haninge (belopp
+   utlovat). Alla fyra ska ryckas i via sina egna trådar.
 
 Hitta inte på. Registrera bara det som står i ett faktiskt mejl, med
 diarienummer och datum där det finns.
@@ -143,10 +151,11 @@ diarienummer och datum där det finns.
 
 - Gren: `claude/state-md-next-job-868omh`
 - Synkad med `origin/claude/state-md-next-job-868omh`
-- Arbetsträd: 1 ändrad fil
+- Arbetsträd: rent
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `753e67d` | 2026-09-01 | feat(m3): ingest --partial, and the four answers that arrived overnight |
 | `cc08409` | 2026-08-31 | feat(m3): the batch 1 inbox, read and written down |
 | `128b1e1` | 2026-09-01 | docs(state): hand off the Gmail triage of batch 1 to the next session |
 | `816268b` | 2026-09-01 | feat(m3): foia note, for what no other field captures |
@@ -154,7 +163,6 @@ diarienummer och datum där det finns.
 | `260087a` | 2026-08-31 | chore(state): refresh |
 | `269d539` | 2026-08-31 | fix(ci): put the repo root on sys.path for bare pytest |
 | `181ff4b` | 2026-08-31 | chore(state): refresh after push |
-| `9a6db60` | 2026-08-31 | fix(state): only rewrite STATE.md when something actually changed |
 
 ## Vad som kör
 
