@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-09-02 09:12 UTC._
+_Genererad 2026-09-02 10:17 UTC._
 
 ## Planen och kontakterna
 
@@ -27,10 +27,16 @@ _Den här delen skrivs aldrig över av generatorn. Håll den kort och ärlig._
   inte gå genom en modellkontext. `scripts/hamta_bilagor.py --live` hämtar dem
   över IMAP med samma app-lösenord som `send_batch.py` redan använder, till
   `data/foia-svar/` som är gitignorerad.
-- **Den bindande begränsningen är täckning, inte kod.** Av 137 ramavtal är
-  **1** mätbart hela vägen (109559-2026, Göteborgs Stad) — och det på en enda
-  månads fakturadata av 17 förflutna, alltså 5,9 % periodtäckning. Svaren på
-  batch 1 är det som kan flytta den siffran.
+- **De 5,9 % är troligen självförvållade.** `GoteborgLoader.covers` säger
+  "monthly CSV, 2016 onwards" och `payments load goteborg` hämtar varje daterad
+  distribution katalogen listar. Att bara en månad av 17 är inläst ser ut som
+  ett inläsningsglapp, inte ett tak i verkligheten. **Kör
+  `tender-scan payments load goteborg` innan något annat** — noll nya filer,
+  noll ny kod. Se `docs/analys-berakningsunderlag.md`.
+- **Ingen av de nio FOIA-filerna går att läsa in.** `LOADERS` har bara `vgr`,
+  `goteborg` och `vasteras`, alla för öppna data-kataloger. Schemat tillåter
+  `source='foia'` men ingen kod producerar en sådan rad. Borås tre år ligger
+  och väntar på en adapter som ingen skrivit.
 - **Vad som ännu inte går att påstå:** att verkligt avrop landar på en viss
   andel av uppskattat värde. Det bygger på n=1 och den punkten pekar åt fel
   håll. Säljargumentet är i stället att *fördelningen mellan vinnande
@@ -88,7 +94,7 @@ Läst i Gmail 2026-08-31 22:50, 2026-09-01 09:19 och 2026-09-02 09:12 UTC. Alla
 | Jönköping | `SH ContractExport 26091.pdf` | 1 | PDF, inte maskinläsbart. Ny avtalsdatabas införs; ekonomiavdelningen tar punkt 2 |
 | Grästorp | `Avtalsdatabasen 20260616.xlsx` | 1 | Nulägesbild. Kommunen skriver att inga handlingar motsvarar punkt 1, och att databasen saknar entreprenad, direktupphandling, delar av Adda och Sinfra |
 
-#### Vill ha betalt — 4 kommuner, plus 1 villkorat
+#### Vill ha betalt — 5 kommuner, plus 1 villkorat
 
 | Kommun | Belopp | Läge |
 | --- | --- | --- |
@@ -96,11 +102,13 @@ Läst i Gmail 2026-08-31 22:50, 2026-09-01 09:19 och 2026-09-02 09:12 UTC. Alla
 | Katrineholm | Enligt avgiftsförordningen, 10–16 stora filer | Taxan skickades som **bild**, beloppet går inte att läsa ur texten. Vill ha fakturaadress |
 | Härnösand | Utlovad, ej angiven | "Vi återkommer om en exakt summa" |
 | Haninge | Utlovad, ej angiven | Via Upphandling Södertörn; avgiftsinfo som PDF, RE-700008093 |
+| Karlstad | **100 kr** för 50 sidor, sedan 2 kr/sida | Bedömer >49 sidor; vill ha ett principbesked innan de räknar exakt. Swish eller faktura |
 | Falun | *Kan* tillkomma | Villkorat av mängd; sekretessbedömning pågår |
 
 #### Bekräftat, inget mer
 
-Helsingborg, Kalmar, Karlstad, Halmstad, Enköping, Gävle. Gävle har uttryckligen
+Helsingborg, Halmstad, Enköping, Gävle, Kalmar. Kalmar meddelade 2026-09-02 att
+en sedvanlig sekretessprövning pågår. Gävle har uttryckligen
 sagt ifrån: uttaget är "ett gigantiskt jobb", delårsbokslutet har prio 1, och de
 återkommer efter det.
 
@@ -132,9 +140,11 @@ På maskinen som har databasen, i den ordningen:
 3. **Registrera filerna.** Bjurholm kan stängas helt:
    `foia ingest <id> <fil>`. Övriga fem behöver **`--partial`**, annars slutar
    `foia due` jaga den halva som fattas.
-4. **Kontrollera de två öppna data-spåren.** Göteborgs sida, och vad Borås
-   faktiskt skickade. Täcker de 2023–2026 blir periodtäckningen en annan
-   siffra än 5,9 %, och det är den siffran hela säljargumentet vilar på.
+4. **Kör `tender-scan payments load goteborg`** — hela historiken, inte en
+   månad. Detta avgör ensamt om 5,9 % var ett verkligt tak eller ett glapp.
+   Kör sedan de två SQL-frågorna i `docs/analys-berakningsunderlag.md` §7:
+   den första visar vilken kommuns reskontra som låser upp flest ramavtal, och
+   den ska styra batch 2 i stället för att kommunerna väljs på måfå.
 5. **Dag 3, 2026-09-03.** `docs/paminnelse-mall.md` har mallarna, men
    **grupperna måste räknas om** — den skrevs när 5 var tysta och 4 arbetade;
    nu är 3 tysta och 6 har levererat. Läs inkorgen igen precis innan utskick.
@@ -144,7 +154,6 @@ På maskinen som har databasen, i den ordningen:
 
 Hitta inte på. Registrera bara det som står i ett faktiskt mejl, med
 diarienummer och datum där det finns.
-
 <!-- MANUELLT:SLUT -->
 
 ## Kod
@@ -155,6 +164,7 @@ diarienummer och datum där det finns.
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `2f328da` | 2026-09-02 | feat(m3): fetch the answers' attachments, and the day the files arrived |
 | `753e67d` | 2026-09-01 | feat(m3): ingest --partial, and the four answers that arrived overnight |
 | `cc08409` | 2026-08-31 | feat(m3): the batch 1 inbox, read and written down |
 | `128b1e1` | 2026-09-01 | docs(state): hand off the Gmail triage of batch 1 to the next session |
@@ -162,7 +172,6 @@ diarienummer och datum där det finns.
 | `d1ffebb` | 2026-08-31 | feat(state): warn when the running image predates the code |
 | `260087a` | 2026-08-31 | chore(state): refresh |
 | `269d539` | 2026-08-31 | fix(ci): put the repo root on sys.path for bare pytest |
-| `181ff4b` | 2026-08-31 | chore(state): refresh after push |
 
 ## Vad som kör
 
