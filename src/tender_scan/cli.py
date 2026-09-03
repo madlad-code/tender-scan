@@ -1175,7 +1175,8 @@ def edge_pipeline(
     )
     typer.echo(
         f"  Konkurrensutsatt marknad: {len(open_market)} leverantörer, "
-        f"{edge.sek(sum(r.run_rate_year_sek for r in open_market))}/år i observerat avrop."
+        f"{edge.sek(sum(r.run_rate_year_sek for r in open_market))}/år i observerat avrop "
+        f"({sum(1 for r in open_market if not r.sizeable)} för nya för att sizas)."
     )
     typer.echo(
         f"  Vård/omsorg och placering: {len(placements)} leverantörer, "

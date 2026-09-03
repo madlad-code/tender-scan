@@ -342,3 +342,50 @@ def test_connection_is_untouched(conn):
     edge.pipeline(conn, "Testköping", today=date(2026, 9, 3))
     assert conn.execute("SELECT COUNT(*) FROM supplier_payments").fetchone()[0] == before
     assert isinstance(conn, sqlite3.Connection)
+
+
+def test_pipeline_will_not_size_a_contract_with_an_older_contracts_money(tmp_path):
+    """The bug this test exists for: Orca Entreprenad had been paid 91 MSEK under
+    a contract that expired, and held a new one six weeks old. Summing the
+    supplier's whole history and dividing by the new contract's two observed
+    months claimed 547 MSEK a year, and it sorted to the top of the page."""
+    with Storage(tmp_path / "t.db") as storage:
+        storage.insert_contracts([
+            _contract(contract_ref="old", start_date="2023-01-01", end_date="2024-06-30"),
+            _contract(contract_ref="new", start_date="2024-11-01", end_date="2026-12-31"),
+        ])
+        storage.insert_payments([
+            _payment(period_year=2023, period_month=m, amount_sek=1_000_000)
+            for m in range(1, 13)
+        ] + [_payment(period_year=2024, period_month=12, amount_sek=10_000)])
+        _cov, rows, _c = edge.pipeline(
+            storage.connection(), "Testköping", today=date(2026, 9, 3)
+        )
+    (row,) = rows
+    assert row.paid_sek == 10_000, "only what was paid while the expiring contract ran"
+    assert row.observed_months == 2  # 2024-11 and 2024-12, where the ledger ends
+
+
+def test_pipeline_refuses_an_annual_figure_from_two_months(tmp_path):
+    with Storage(tmp_path / "t.db") as storage:
+        storage.insert_contracts([_contract(start_date="2024-11-01", end_date="2026-12-31")])
+        storage.insert_payments([_payment(period_year=2024, period_month=12, amount_sek=90_000)])
+        _cov, rows, _c = edge.pipeline(
+            storage.connection(), "Testköping", today=date(2026, 9, 3)
+        )
+    assert not rows[0].sizeable
+    assert rows[0].run_rate_year_sek == 0
+    assert rows[0].paid_sek == 90_000
+
+
+def test_pipeline_sizes_a_contract_with_enough_months(tmp_path):
+    with Storage(tmp_path / "t.db") as storage:
+        storage.insert_contracts([_contract(start_date="2024-01-01", end_date="2026-12-31")])
+        storage.insert_payments([
+            _payment(period_year=2024, period_month=m, amount_sek=1_000) for m in range(1, 13)
+        ])
+        _cov, rows, _c = edge.pipeline(
+            storage.connection(), "Testköping", today=date(2026, 9, 3)
+        )
+    assert rows[0].sizeable
+    assert rows[0].run_rate_year_sek == 12_000

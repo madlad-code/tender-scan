@@ -755,16 +755,31 @@ class ExpiringContract:
     accounts: str | None
     cls: str
 
+    #: Below this many observed months an annual figure is arithmetic, not
+    #: evidence. Orca Entreprenad's contract started six weeks before the ledger
+    #: ends; annualising those two months turned 91 MSEK of history into a
+    #: claimed 547 MSEK a year, and it was the largest number on the page.
+    MIN_MONTHS_TO_ANNUALISE = 3
+
+    @property
+    def sizeable(self) -> bool:
+        return self.observed_months >= self.MIN_MONTHS_TO_ANNUALISE
+
     @property
     def run_rate_year_sek(self) -> int:
-        """Annualised from observed months, not from a ceiling nobody published.
+        """Annualised from what was paid inside this contract's own window.
 
         Every catalogue but Jönköping's arrived without contract values, so a
-        contract's size has to be inferred from what was paid against it. That
-        is a floor: it counts only what this ledger saw, in the months it
-        covers.
+        contract's size has to be inferred from what was paid against it. Both
+        halves of that fraction must cover the same months: `paid_sek` counts
+        only payments made while this contract was live and the ledger was
+        running, and `observed_months` counts exactly those months. A supplier's
+        older, larger, already-expired contract does not belong in either.
+
+        Returns 0 when the window is too short to annualise; read `paid_sek`
+        and `observed_months` instead.
         """
-        if self.observed_months <= 0:
+        if not self.sizeable:
             return 0
         return int(self.paid_sek * 12 / self.observed_months)
 
@@ -814,12 +829,19 @@ def pipeline(
 
     out: list[ExpiringContract] = []
     for orgnr, name, contracts, end_date, start_date, titles, categories in rows:
+        # Only what was paid while this contract was live and the ledger was
+        # running. Anything outside that window belongs to a different contract.
+        from_period = max(start_date or start, start)[:7].replace("-", "")
+        to_period = min(end_date, end)[:7].replace("-", "")
         row = conn.execute(
             """
             SELECT COALESCE(SUM(amount_sek), 0), GROUP_CONCAT(DISTINCT account)
-            FROM supplier_payments WHERE payer_org = ? AND supplier_orgnr = ?
+            FROM supplier_payments
+            WHERE payer_org = ? AND supplier_orgnr = ?
+              AND printf('%04d%02d', period_year, COALESCE(period_month, 1)) >= ?
+              AND printf('%04d%02d', period_year, COALESCE(period_month, 12)) <= ?
             """,
-            (buyer_org, orgnr),
+            (buyer_org, orgnr, from_period, to_period),
         ).fetchone()
         out.append(
             ExpiringContract(
@@ -841,6 +863,9 @@ def pipeline(
         f"Volymen är observerad, inte avtalad: summerad ur reskontran {start} – {end}.",
         "En rad per leverantör, inte per avtal — reskontran säger inte vilket avtal "
         "en faktura avropades mot, så samma pengar får aldrig räknas två gånger.",
+        f"Beloppet räknas bara över de månader avtalet självt löpte. Avtal med färre "
+        f"än {ExpiringContract.MIN_MONTHS_TO_ANNUALISE} observerade månader får ingen "
+        "årstakt — där står observerat belopp och antal månader i stället.",
         "Ingen av katalogerna utom Jönköpings innehåller avtalsvärde, så takvolym "
         "kan inte jämföras med utfall för någon av dessa kommuner.",
     ]
