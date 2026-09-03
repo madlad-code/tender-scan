@@ -487,23 +487,60 @@ def test_an_unknown_municipality_is_a_404_not_an_empty_page(db):
 # -- Huddinge's ledger -------------------------------------------------------
 
 _HUDDINGE_HEADER = [
-    "T", "Period", "Organisationsnr.", "Lev.nr", "Lev.nr(T)", "VT", "Ver.nr",
-    "Ansvar", "Ansvar(T)", "Projekt", "Verks", "Aktiv", "Motpart", "Objekt",
-    "Ver.datum", "Konto", "Konto(T)", "Belopp",
+    "T",
+    "Period",
+    "Organisationsnr.",
+    "Lev.nr",
+    "Lev.nr(T)",
+    "VT",
+    "Ver.nr",
+    "Ansvar",
+    "Ansvar(T)",
+    "Projekt",
+    "Verks",
+    "Aktiv",
+    "Motpart",
+    "Objekt",
+    "Ver.datum",
+    "Konto",
+    "Konto(T)",
+    "Belopp",
 ]
 
 
 def _huddinge_row(period, orgnr, name, account, centre, amount):
-    return ["B", period, orgnr, 1, name, "2P", 1, 1, centre, "DRIFT", 1, None,
-            85, None, "2026-05-10", 6011, account, amount]
+    return [
+        "B",
+        period,
+        orgnr,
+        1,
+        name,
+        "2P",
+        1,
+        1,
+        centre,
+        "DRIFT",
+        1,
+        None,
+        85,
+        None,
+        "2026-05-10",
+        6011,
+        account,
+        amount,
+    ]
 
 
 def test_read_huddinge_ledger_keeps_the_account_and_the_cost_centre():
     """The two columns no other municipality sent, and the reason this reader exists."""
-    blob = _xlsx({"Blad1": [
-        _HUDDINGE_HEADER,
-        _huddinge_row(202605, 8128003624, "ABF Huddinge", "Livsmedel", "IFO stab", 1300),
-    ]})
+    blob = _xlsx(
+        {
+            "Blad1": [
+                _HUDDINGE_HEADER,
+                _huddinge_row(202605, 8128003624, "ABF Huddinge", "Livsmedel", "IFO stab", 1300),
+            ]
+        }
+    )
     (row,) = municipal.read_huddinge_ledger(blob)
     assert row.account == "Livsmedel"
     assert row.cost_centre == "IFO stab"
@@ -514,22 +551,32 @@ def test_read_huddinge_ledger_keeps_the_account_and_the_cost_centre():
 def test_read_huddinge_ledger_splits_one_supplier_across_two_accounts():
     """Same supplier, same month, same amount, different account. Before the
     account joined the row hash the second of these silently vanished."""
-    blob = _xlsx({"Blad1": [
-        _HUDDINGE_HEADER,
-        _huddinge_row(202601, 8128003624, "ABF Huddinge", "Livsmedel", "Kök", 800),
-        _huddinge_row(202601, 8128003624, "ABF Huddinge", "Handledningskonsulter", "Kök", 800),
-    ]})
+    blob = _xlsx(
+        {
+            "Blad1": [
+                _HUDDINGE_HEADER,
+                _huddinge_row(202601, 8128003624, "ABF Huddinge", "Livsmedel", "Kök", 800),
+                _huddinge_row(
+                    202601, 8128003624, "ABF Huddinge", "Handledningskonsulter", "Kök", 800
+                ),
+            ]
+        }
+    )
     rows = municipal.read_huddinge_ledger(blob)
     assert len(rows) == 2
     assert {r.account for r in rows} == {"Livsmedel", "Handledningskonsulter"}
 
 
 def test_read_huddinge_ledger_sums_within_one_account_and_month():
-    blob = _xlsx({"Blad1": [
-        _HUDDINGE_HEADER,
-        _huddinge_row(202601, 8128003624, "ABF Huddinge", "Livsmedel", "Kök", 800),
-        _huddinge_row(202601, 8128003624, "ABF Huddinge", "Livsmedel", "Kök", 500),
-    ]})
+    blob = _xlsx(
+        {
+            "Blad1": [
+                _HUDDINGE_HEADER,
+                _huddinge_row(202601, 8128003624, "ABF Huddinge", "Livsmedel", "Kök", 800),
+                _huddinge_row(202601, 8128003624, "ABF Huddinge", "Livsmedel", "Kök", 500),
+            ]
+        }
+    )
     (row,) = municipal.read_huddinge_ledger(blob)
     assert row.amount_sek == 1300
 
@@ -537,13 +584,17 @@ def test_read_huddinge_ledger_sums_within_one_account_and_month():
 def test_read_huddinge_ledger_keeps_a_credit_note():
     """13 039 of Huddinge's 489 000 lines are negative. Dropping them overstates
     spend; netting them to zero over a month correctly removes the pair."""
-    blob = _xlsx({"Blad1": [
-        _HUDDINGE_HEADER,
-        _huddinge_row(202601, 8128003624, "ABF", "Livsmedel", "Kök", 1000),
-        _huddinge_row(202601, 8128003624, "ABF", "Livsmedel", "Kök", -400),
-        _huddinge_row(202602, 8128003624, "ABF", "Livsmedel", "Kök", 700),
-        _huddinge_row(202602, 8128003624, "ABF", "Livsmedel", "Kök", -700),
-    ]})
+    blob = _xlsx(
+        {
+            "Blad1": [
+                _HUDDINGE_HEADER,
+                _huddinge_row(202601, 8128003624, "ABF", "Livsmedel", "Kök", 1000),
+                _huddinge_row(202601, 8128003624, "ABF", "Livsmedel", "Kök", -400),
+                _huddinge_row(202602, 8128003624, "ABF", "Livsmedel", "Kök", 700),
+                _huddinge_row(202602, 8128003624, "ABF", "Livsmedel", "Kök", -700),
+            ]
+        }
+    )
     rows = municipal.read_huddinge_ledger(blob)
     assert [(r.period_month, r.amount_sek) for r in rows] == [(1, 600)]
 
@@ -551,21 +602,29 @@ def test_read_huddinge_ledger_keeps_a_credit_note():
 def test_read_huddinge_ledger_drops_an_orgnr_that_is_not_one():
     """Eleven of the real rows carry a truncated number. A supplier keyed on a
     bad orgnr would join to the wrong contract, so the field is dropped, not kept."""
-    blob = _xlsx({"Blad1": [
-        _HUDDINGE_HEADER,
-        _huddinge_row(202601, 101028751, "Feras Yagob EF", "Livsmedel", "Bibliotek", 900),
-    ]})
+    blob = _xlsx(
+        {
+            "Blad1": [
+                _HUDDINGE_HEADER,
+                _huddinge_row(202601, 101028751, "Feras Yagob EF", "Livsmedel", "Bibliotek", 900),
+            ]
+        }
+    )
     (row,) = municipal.read_huddinge_ledger(blob)
     assert row.supplier_orgnr is None
     assert row.supplier_name == "Feras Yagob EF"
 
 
 def test_read_huddinge_ledger_skips_a_row_with_an_unusable_period():
-    blob = _xlsx({"Blad1": [
-        _HUDDINGE_HEADER,
-        _huddinge_row("hösten", 8128003624, "ABF", "Livsmedel", "Kök", 900),
-        _huddinge_row(202601, 8128003624, "ABF", "Livsmedel", "Kök", 900),
-    ]})
+    blob = _xlsx(
+        {
+            "Blad1": [
+                _HUDDINGE_HEADER,
+                _huddinge_row("hösten", 8128003624, "ABF", "Livsmedel", "Kök", 900),
+                _huddinge_row(202601, 8128003624, "ABF", "Livsmedel", "Kök", 900),
+            ]
+        }
+    )
     assert len(municipal.read_huddinge_ledger(blob)) == 1
 
 

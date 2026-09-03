@@ -210,36 +210,69 @@ _RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     # Collectively agreed and statutory employer costs. AMF and grupplivförsäkring
     # follow from the collective agreement; the municipality cannot put them out
     # to tender, and Huddinge books 24 MSEK there.
-    (re.compile(r"pension|arbetsmarknadsförsäkring|grupplivförsäkring|arbetsgivaravgift", re.I),
-     CLASS_TRANSFER, "kollektivavtalad eller lagstadgad arbetsgivarkostnad"),
+    (
+        re.compile(r"pension|arbetsmarknadsförsäkring|grupplivförsäkring|arbetsgivaravgift", re.I),
+        CLASS_TRANSFER,
+        "kollektivavtalad eller lagstadgad arbetsgivarkostnad",
+    ),
     # Money paid out rather than bought with: grants to residents, statutory
     # reimbursements between authorities, allowances.
-    (re.compile(r"\bbidrag\b|bostadsanpassning|habiliteringsersättning|stipendi", re.I),
-     CLASS_TRANSFER, "utbetalning till enskild eller myndighet, inget köp"),
-    (re.compile(r"ersättning till (försäkringskassan|kommun|region|staten)", re.I),
-     CLASS_TRANSFER, "lagstadgad ersättning mellan huvudmän"),
-    (re.compile(r"medlemsavgift|avgift kommunförbund|avgift övriga intresseförening", re.I),
-     CLASS_TRANSFER, "medlemsavgift, inte en upphandlad tjänst"),
-    (re.compile(r"bankkostnad|räntekostnad|internbank|\bmoms\b|\bskatt\b", re.I),
-     CLASS_TRANSFER, "finansiell eller skattemässig post"),
-    (re.compile(r"representation \(internt\)|uppvaktningar \(internt\)", re.I),
-     CLASS_TRANSFER, "intern personalkostnad, inte ett inköp av verksamheten"),
+    (
+        re.compile(r"\bbidrag\b|bostadsanpassning|habiliteringsersättning|stipendi", re.I),
+        CLASS_TRANSFER,
+        "utbetalning till enskild eller myndighet, inget köp",
+    ),
+    (
+        re.compile(r"ersättning till (försäkringskassan|kommun|region|staten)", re.I),
+        CLASS_TRANSFER,
+        "lagstadgad ersättning mellan huvudmän",
+    ),
+    (
+        re.compile(r"medlemsavgift|avgift kommunförbund|avgift övriga intresseförening", re.I),
+        CLASS_TRANSFER,
+        "medlemsavgift, inte en upphandlad tjänst",
+    ),
+    (
+        re.compile(r"bankkostnad|räntekostnad|internbank|\bmoms\b|\bskatt\b", re.I),
+        CLASS_TRANSFER,
+        "finansiell eller skattemässig post",
+    ),
+    (
+        re.compile(r"representation \(internt\)|uppvaktningar \(internt\)", re.I),
+        CLASS_TRANSFER,
+        "intern personalkostnad, inte ett inköp av verksamheten",
+    ),
     # Premises. 22 % of Huddinge's ledger, and a property deal rather than a
     # framework: a landlord is not something a supplier can win in a tender.
-    (re.compile(r"lokalhyr|markhyr|hyra av lokal|arrende|tomträtt|fastighetsskatt", re.I),
-     CLASS_PREMISES, "hyra eller mark"),
+    (
+        re.compile(r"lokalhyr|markhyr|hyra av lokal|arrende|tomträtt|fastighetsskatt", re.I),
+        CLASS_PREMISES,
+        "hyra eller mark",
+    ),
     # Regulated monopolies and public tariffs. There is one water utility and
     # one district-heating grid; "off-contract" there says nothing about
     # procurement discipline, and counting it would be a free 31 MSEK.
-    (re.compile(r"förbrukningsavgift|va-avgift|renhållningsavgift|nätavgift", re.I),
-     CLASS_MONOPOLY, "leveransmonopol — VA, fjärrvärme, elnät"),
-    (re.compile(r"grundad på taxa|myndighetsavgift|mät- och granskningsavgift|"
-                r"lagstadgad avgift|inträdesavgift", re.I),
-     CLASS_MONOPOLY, "priset är en taxa, inte ett anbud"),
+    (
+        re.compile(r"förbrukningsavgift|va-avgift|renhållningsavgift|nätavgift", re.I),
+        CLASS_MONOPOLY,
+        "leveransmonopol — VA, fjärrvärme, elnät",
+    ),
+    (
+        re.compile(
+            r"grundad på taxa|myndighetsavgift|mät- och granskningsavgift|"
+            r"lagstadgad avgift|inträdesavgift",
+            re.I,
+        ),
+        CLASS_MONOPOLY,
+        "priset är en taxa, inte ett anbud",
+    ),
     # Individual placements. Procured, but against frameworks where zero
     # call-offs is the normal state — the largest false finding available here.
-    (re.compile(r"placeringskostnad|köp av huvudverksamhet|familjehem|kontaktperson", re.I),
-     CLASS_PLACEMENT, "individuell placering mot ramavtal"),
+    (
+        re.compile(r"placeringskostnad|köp av huvudverksamhet|familjehem|kontaktperson", re.I),
+        CLASS_PLACEMENT,
+        "individuell placering mot ramavtal",
+    ),
 )
 
 
@@ -354,7 +387,12 @@ def coverage(conn: sqlite3.Connection, buyer_org: str) -> Coverage:
         (buyer_org,),
     ).fetchone()
     payments, payment_orgnr, first, last, named, spend = (
-        row[0] or 0, row[1] or 0, row[2], row[3], row[4] or 0, row[5] or 0,
+        row[0] or 0,
+        row[1] or 0,
+        row[2],
+        row[3],
+        row[4] or 0,
+        row[5] or 0,
     )
     months = 0
     if first and last:
@@ -476,9 +514,7 @@ class DormantReport:
         return Proportion(self.placement_zero, self.placement_contracted)
 
 
-def dormant(
-    conn: sqlite3.Connection, buyer_org: str, *, min_live_months: int = 6
-) -> DormantReport:
+def dormant(conn: sqlite3.Connection, buyer_org: str, *, min_live_months: int = 6) -> DormantReport:
     """Suppliers with a contract live inside the ledger window who were paid nothing.
 
     `min_live_months` guards the obvious false positive: a contract that
@@ -571,8 +607,15 @@ def dormant(
             "(oftast utländska leverantörer) och kan varken bekräftas eller dementeras."
         )
     return DormantReport(
-        cov, (start, end), suppliers, contracted, zero,
-        placements, placement_contracted, placement_zero, caveats,
+        cov,
+        (start, end),
+        suppliers,
+        contracted,
+        zero,
+        placements,
+        placement_contracted,
+        placement_zero,
+        caveats,
     )
 
 
@@ -916,8 +959,13 @@ def benchmark(conn: sqlite3.Connection) -> list[Benchmark]:
             if cat.account is None:
                 continue
             per_account.setdefault(cat.account, []).append(
-                (buyer, cat.spend_sek, cat.off_contract_sek, cat.suppliers,
-                 cat.suppliers - cat.suppliers_on_contract)
+                (
+                    buyer,
+                    cat.spend_sek,
+                    cat.off_contract_sek,
+                    cat.suppliers,
+                    cat.suppliers - cat.suppliers_on_contract,
+                )
             )
     out = []
     for account, seen in per_account.items():

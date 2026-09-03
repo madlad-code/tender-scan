@@ -226,7 +226,9 @@ def read_goteborg(blob: bytes) -> list[MunicipalContract]:
             MunicipalContract(
                 buyer_org="Göteborgs Stad",
                 supplier_name=supplier,
-                supplier_orgnr=normalize_orgnr(clean(row[columns["Leverantör_Organisationsnummer_Original"]])),
+                supplier_orgnr=normalize_orgnr(
+                    clean(row[columns["Leverantör_Organisationsnummer_Original"]])
+                ),
                 contract_ref=clean(row[columns["Avtalsnummer_Original"]]),
                 title=clean(row[columns["Beställningsgrupp"]]),
                 category=clean(row[columns["Delområden"]]),

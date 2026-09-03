@@ -926,22 +926,44 @@ app.add_typer(db_app, name="db")
 # with eight tables, filled by five different commands — is not visible from
 # anywhere else.
 _TABLES: tuple[tuple[str, str, str, bool], ...] = (
-    ("notices", "Upphandlingsannonser hämtade från TED",
-     "tender-scan scan", True),
-    ("framework_agreements", "Ramavtal med takvolym, utvunnen ur eForms",
-     "tender-scan frameworks extract", False),
-    ("framework_buyers", "Varje köpare en annons namnger som avropsberättigad",
-     "tender-scan frameworks extract", False),
-    ("award_winners", "Leverantörer som tilldelats plats på ett ramavtal",
-     "tender-scan winners extract", False),
-    ("supplier_payments", "Fakturarader: vem kommunen faktiskt betalade",
-     "tender-scan payments load / kommun ingest --ledger", False),
-    ("municipal_contracts", "Kommunernas egna avtalskataloger",
-     "tender-scan kommun ingest", False),
-    ("foia_requests", "Utlämnandebegäranden — FACIT för vem som svarat",
-     "tender-scan foia new/sent/did/ingest/import", False),
-    ("fx_rates", "Växelkurser, för annonser i annan valuta än SEK",
-     "tender-scan (automatiskt vid behov)", True),
+    ("notices", "Upphandlingsannonser hämtade från TED", "tender-scan scan", True),
+    (
+        "framework_agreements",
+        "Ramavtal med takvolym, utvunnen ur eForms",
+        "tender-scan frameworks extract",
+        False,
+    ),
+    (
+        "framework_buyers",
+        "Varje köpare en annons namnger som avropsberättigad",
+        "tender-scan frameworks extract",
+        False,
+    ),
+    (
+        "award_winners",
+        "Leverantörer som tilldelats plats på ett ramavtal",
+        "tender-scan winners extract",
+        False,
+    ),
+    (
+        "supplier_payments",
+        "Fakturarader: vem kommunen faktiskt betalade",
+        "tender-scan payments load / kommun ingest --ledger",
+        False,
+    ),
+    ("municipal_contracts", "Kommunernas egna avtalskataloger", "tender-scan kommun ingest", False),
+    (
+        "foia_requests",
+        "Utlämnandebegäranden — FACIT för vem som svarat",
+        "tender-scan foia new/sent/did/ingest/import",
+        False,
+    ),
+    (
+        "fx_rates",
+        "Växelkurser, för annonser i annan valuta än SEK",
+        "tender-scan (automatiskt vid behov)",
+        True,
+    ),
 )
 
 
@@ -1030,7 +1052,6 @@ def db_check(
     raise typer.Exit(code=1)
 
 
-
 # -- edge (M8: var avtalen och pengarna säger emot varandra) ------------------
 
 edge_app = typer.Typer(
@@ -1088,8 +1109,9 @@ def edge_accounts(
     total = sum(by_class.values()) or 1
     typer.echo(f"\n{kommun} — {len(rows)} konton, {edge.sek(total)}\n")
     for cls, amount in sorted(by_class.items(), key=lambda i: -i[1]):
-        typer.echo(f"  {edge.sek(amount):>10}  {100 * amount / total:>5.1f}%  "
-                   f"{edge.CLASS_LABELS[cls]}")
+        typer.echo(
+            f"  {edge.sek(amount):>10}  {100 * amount / total:>5.1f}%  {edge.CLASS_LABELS[cls]}"
+        )
     typer.echo(f"\n{'belopp':>10}  {'klass':<12} konto")
     for row in rows[:40]:
         typer.echo(f"  {edge.sek(row.amount_sek):>10}  {row.cls:<12} {row.account or '(inget)'}")
@@ -1144,9 +1166,7 @@ def edge_leakage(
     )
     for cls, amount in sorted(report.excluded.items(), key=lambda i: -i[1]):
         typer.echo(f"    undantaget: {edge.sek(amount):>10}  {edge.CLASS_LABELS[cls]}")
-    typer.echo(
-        f"\n  {'utan avtal':>11}{'andel':>7}{'lev':>5}{'HHI':>6}{'trend':>7}  konto"
-    )
+    typer.echo(f"\n  {'utan avtal':>11}{'andel':>7}{'lev':>5}{'HHI':>6}{'trend':>7}  konto")
     for c in report.categories[:limit]:
         typer.echo(
             f"  {edge.sek(c.off_contract_sek):>11}{c.off_contract_share:>7.0%}"

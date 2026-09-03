@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-09-03 07:01 UTC._
+_Genererad 2026-09-03 07:16 UTC._
 
 ## Planen och kontakterna
 
@@ -118,10 +118,11 @@ köra det.
 
 - Gren: `main`
 - Synkad med `origin/main`
-- Arbetsträd: 1 ändrad fil
+- Arbetsträd: rent
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `f6f38e6` | 2026-09-03 | docs(state): link the Huddinge analysis and its strongest objection |
 | `88dcad9` | 2026-09-03 | fix(m8): size an expiring contract from its own months, not the supplier's history |
 | `e2b3689` | 2026-09-03 | chore(state): refresh after M8 |
 | `d8fce29` | 2026-09-03 | feat(m8): lay the catalogue over the ledger and measure where they disagree |
@@ -129,17 +130,16 @@ köra det.
 | `3da8faf` | 2026-09-01 | feat(m3): foia ingest --partial, so half a delivery does not retire a request |
 | `3cd8b89` | 2026-09-01 | feat(setup): bootstrap a fresh clone and say what it lacks |
 | `128b1e1` | 2026-09-01 | docs(state): hand off the Gmail triage of batch 1 to the next session |
-| `816268b` | 2026-09-01 | feat(m3): foia note, for what no other field captures |
 
 ## Vad som kör
 
 | Container | Status | Image |
 | --- | --- | --- |
-| `tender-scan-app-1` | Up 8 minutes | `tender-scan-app` |
-| `tender-scan-tailscale-1` | Up About an hour | `tailscale/tailscale:latest` |
+| `tender-scan-app-1` | Up 22 minutes | `tender-scan-app` |
+| `tender-scan-tailscale-1` | Up 2 hours | `tailscale/tailscale:latest` |
 
 - Image `tender-scan-app` byggd: 2026-09-03 08:53:00 UTC
-- ⚠️ **Imagen är 5 min äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
+- ⚠️ **Imagen är 8 min äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
 - Nås bara över tailnet: **http://tender-scan:8000**. `localhost:8000` är avsiktligt stängt (`network_mode: service:tailscale`).
 
 ## Vad databasen innehåller
