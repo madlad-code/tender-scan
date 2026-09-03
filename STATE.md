@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-09-02 10:30 UTC._
+_Genererad 2026-09-03 07:32 UTC._
 
 ## Planen och kontakterna
 
@@ -170,10 +170,11 @@ diarienummer och datum där det finns.
 
 - Gren: `claude/state-md-next-job-868omh`
 - Synkad med `origin/claude/state-md-next-job-868omh`
-- Arbetsträd: rent
+- Arbetsträd: 1 ändrad fil
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `a962445` | 2026-09-02 | feat: profile the answers' files instead of reading them |
 | `40a1f55` | 2026-09-02 | docs: what the calculation actually needs, and what can be claimed |
 | `2f328da` | 2026-09-02 | feat(m3): fetch the answers' attachments, and the day the files arrived |
 | `753e67d` | 2026-09-01 | feat(m3): ingest --partial, and the four answers that arrived overnight |
@@ -181,7 +182,6 @@ diarienummer och datum där det finns.
 | `128b1e1` | 2026-09-01 | docs(state): hand off the Gmail triage of batch 1 to the next session |
 | `816268b` | 2026-09-01 | feat(m3): foia note, for what no other field captures |
 | `d1ffebb` | 2026-08-31 | feat(state): warn when the running image predates the code |
-| `260087a` | 2026-08-31 | chore(state): refresh |
 
 ## Vad som kör
 
