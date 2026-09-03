@@ -49,7 +49,11 @@ from tender_scan.records import (
     SupplierPayment,
 )
 
-DEFAULT_DB_PATH = "tender_scan.db"
+# The database lives under data/, which is gitignored. The old default was
+# "tender_scan.db" relative to the working directory, which meant a command run
+# from the repo root silently created an empty database beside the code and
+# reported zero rows instead of failing — the worst possible way to be wrong.
+DEFAULT_DB_PATH = "data/tender_scan.db"
 
 SCHEMA_VERSION = 5
 
@@ -113,6 +117,12 @@ CREATE TABLE IF NOT EXISTS supplier_payments (
     source_url     TEXT,
     row_hash       TEXT NOT NULL,
     ingested_at    TEXT NOT NULL,
+    -- What the money bought and which unit spent it, where the ledger says so.
+    -- Also added by _add_missing_columns for databases that predate them; both
+    -- paths are needed, and a fresh database that only had the ALTER would have
+    -- worked on this machine and failed on every new clone.
+    account        TEXT,
+    cost_centre    TEXT,
     PRIMARY KEY (row_hash)
 );
 
@@ -257,6 +267,8 @@ _PAYMENT_COLUMNS = (
     "source_url",
     "row_hash",
     "ingested_at",
+    "account",
+    "cost_centre",
 )
 
 
@@ -320,6 +332,13 @@ class Storage:
             ("supplier_payments", "payer_orgnr", "TEXT"),
             ("framework_agreements", "buyer_is_cpb", "INTEGER NOT NULL DEFAULT 0"),
             ("award_winners", "award_date", "TEXT"),
+            # Huddinge's ledger names the account and the cost centre behind
+            # every line. Borås and Bjurholm do not, so both stay NULL there.
+            # They join the aggregation key, which makes Huddinge's grain
+            # finer without changing anyone else's: a query that sums by
+            # supplier and month returns exactly what it returned before.
+            ("supplier_payments", "account", "TEXT"),
+            ("supplier_payments", "cost_centre", "TEXT"),
         ):
             columns = {row[1] for row in self._conn.execute(f"PRAGMA table_info({table})")}
             if columns and column not in columns:
@@ -595,6 +614,8 @@ def payment_row_hash(
     period_year: int,
     period_month: int | None,
     source_url: str | None = None,
+    account: str | None = None,
+    cost_centre: str | None = None,
 ) -> str:
     """The stable identity of one payment row, so re-ingesting a file is a no-op.
 
@@ -620,6 +641,14 @@ def payment_row_hash(
         "" if period_month is None else str(int(period_month)),
         _norm_text(source_url),
     )
+    # Appended only when the ledger carries them, so every row hashed before
+    # these columns existed still hashes to the same value and no historical
+    # row is re-ingested. Where they do exist they must be in the hash: one
+    # supplier can be paid the same amount in the same month against two
+    # different accounts, and without them the second row would silently
+    # collide with the first and be dropped.
+    if account is not None or cost_centre is not None:
+        parts = (*parts, _norm_text(account), _norm_text(cost_centre))
     return hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
 
 
@@ -799,6 +828,8 @@ def _payment_values(payment: SupplierPayment) -> tuple[Any, ...]:
         period_year=payment.period_year,
         period_month=payment.period_month,
         source_url=payment.source_url,
+        account=payment.account,
+        cost_centre=payment.cost_centre,
     )
     return (
         payment.payer_org,
@@ -812,6 +843,8 @@ def _payment_values(payment: SupplierPayment) -> tuple[Any, ...]:
         payment.source_url,
         row_hash,
         payment.ingested_at or _utc_now(),
+        payment.account,
+        payment.cost_centre,
     )
 
 

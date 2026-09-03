@@ -8,7 +8,7 @@ from pathlib import Path
 
 import typer
 
-from tender_scan import foia, municipal, prospects, utilization
+from tender_scan import edge, foia, municipal, prospects, utilization
 from tender_scan import report as report_module
 from tender_scan.eforms import DEFAULT_CACHE_DIR, EformsError, notice_text, parse_graph
 from tender_scan.frameworks import extract_framework, named_buyers, needs_review, validate
@@ -145,10 +145,6 @@ def serve(
         server.serve_forever()
     except KeyboardInterrupt:
         server.shutdown()
-
-
-if __name__ == "__main__":
-    app()
 
 
 # -- frameworks (M1: takvolymsextraktion) ------------------------------------
@@ -917,3 +913,310 @@ def kommun_rapport(
             f"{utilization.sek(row.paid_sek):>16}  {mark:<6} {row.supplier_name[:44]:<46}"
             f"{row.supplier_orgnr or '':<14}{row.latest_end or ''}"
         )
+
+
+# -- db (vad tabellerna är och varifrån de kommer) ---------------------------
+
+db_app = typer.Typer(help="Explain and check the database.", no_args_is_help=True)
+app.add_typer(db_app, name="db")
+
+# One line per table: what it holds, what fills it, and whether being empty is a
+# problem. Written down because "why are there different databases" is the
+# question this project gets asked most, and the answer — there is one database
+# with eight tables, filled by five different commands — is not visible from
+# anywhere else.
+_TABLES: tuple[tuple[str, str, str, bool], ...] = (
+    ("notices", "Upphandlingsannonser hämtade från TED",
+     "tender-scan scan", True),
+    ("framework_agreements", "Ramavtal med takvolym, utvunnen ur eForms",
+     "tender-scan frameworks extract", False),
+    ("framework_buyers", "Varje köpare en annons namnger som avropsberättigad",
+     "tender-scan frameworks extract", False),
+    ("award_winners", "Leverantörer som tilldelats plats på ett ramavtal",
+     "tender-scan winners extract", False),
+    ("supplier_payments", "Fakturarader: vem kommunen faktiskt betalade",
+     "tender-scan payments load / kommun ingest --ledger", False),
+    ("municipal_contracts", "Kommunernas egna avtalskataloger",
+     "tender-scan kommun ingest", False),
+    ("foia_requests", "Utlämnandebegäranden — FACIT för vem som svarat",
+     "tender-scan foia new/sent/did/ingest/import", False),
+    ("fx_rates", "Växelkurser, för annonser i annan valuta än SEK",
+     "tender-scan (automatiskt vid behov)", True),
+)
+
+
+@db_app.command("status")
+def db_status(
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Every table: what it holds, what fills it, and whether it is empty."""
+    with Storage(db) as storage:
+        conn = storage.connection()
+        typer.echo(f"\nDatabas: {storage.db_path}")
+        typer.echo("Det finns EN databas. Tabellerna nedan är delar av den, inte egna databaser.\n")
+        typer.echo(f"  {'tabell':<22}{'rader':>9}  fylls av")
+        for name, what, filled_by, empty_ok in _TABLES:
+            try:
+                n = conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
+            except Exception:  # noqa: BLE001 - a missing table is information, not a crash
+                typer.echo(f"  {name:<22}{'SAKNAS':>9}  (tabellen finns inte — gammalt schema?)")
+                continue
+            flag = "" if n or empty_ok else "  ⚠️ tom"
+            typer.echo(f"  {name:<22}{n:>9}{flag}")
+            typer.echo(f"  {'':<22}{'':>9}  {what}")
+            typer.echo(f"  {'':<22}{'':>9}  ← {filled_by}")
+
+
+@db_app.command("check")
+def db_check(
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Look for the data faults that quietly break an analysis.
+
+    Exits non-zero when something is wrong, so it can gate a report.
+    """
+    problems: list[str] = []
+    with Storage(db) as storage:
+        conn = storage.connection()
+        bad = conn.execute(
+            """
+            SELECT COUNT(*) FROM municipal_contracts WHERE supplier_orgnr IS NOT NULL
+              AND supplier_orgnr NOT GLOB '[0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'
+            """
+        ).fetchone()[0]
+        if bad:
+            problems.append(f"{bad} avtalsrader har ett orgnr som inte är ett orgnr")
+        bad = conn.execute(
+            """
+            SELECT COUNT(*) FROM supplier_payments WHERE supplier_orgnr IS NOT NULL
+              AND supplier_orgnr NOT GLOB '[0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'
+            """
+        ).fetchone()[0]
+        if bad:
+            problems.append(f"{bad} betalningsrader har ett orgnr som inte är ett orgnr")
+        pairs = conn.execute(
+            """
+            SELECT c.buyer_org FROM (SELECT DISTINCT buyer_org FROM municipal_contracts) c
+            JOIN (SELECT DISTINCT payer_org FROM supplier_payments) p
+              ON p.payer_org = c.buyer_org
+            """
+        ).fetchall()
+        typer.echo(f"\n{len(pairs)} kommun(er) har både katalog och reskontra:")
+        for (buyer,) in pairs:
+            cov = edge.coverage(conn, buyer)
+            typer.echo(f"  {buyer:<24}{cov.months:>3} mån  {edge.sek(cov.spend_sek):>10}")
+        orphan = conn.execute(
+            """
+            SELECT DISTINCT buyer_org FROM municipal_contracts
+            WHERE buyer_org NOT IN (SELECT payer_org FROM supplier_payments)
+            """
+        ).fetchall()
+        for (buyer,) in orphan:
+            problems.append(f"{buyer}: katalog utan reskontra — inget avrop går att mäta")
+        orphan = conn.execute(
+            """
+            SELECT DISTINCT payer_org FROM supplier_payments
+            WHERE payer_org NOT IN (SELECT buyer_org FROM municipal_contracts)
+            """
+        ).fetchall()
+        for (buyer,) in orphan:
+            problems.append(f"{buyer}: reskontra utan katalog — ingen nämnare")
+    if not problems:
+        typer.echo("\nInga fel hittade.")
+        return
+    typer.echo("")
+    for problem in problems:
+        typer.echo(f"  ⚠️  {problem}")
+    raise typer.Exit(code=1)
+
+
+
+# -- edge (M8: var avtalen och pengarna säger emot varandra) ------------------
+
+edge_app = typer.Typer(
+    help="Analyse where a municipality's contracts and its spending disagree.",
+    no_args_is_help=True,
+)
+app.add_typer(edge_app, name="edge")
+
+
+def _edge_header(cov: edge.Coverage) -> None:
+    typer.echo(f"\n{cov.buyer_org}")
+    typer.echo(
+        f"  katalog {cov.contract_rows} rader ({cov.contracts_with_orgnr} med orgnr) | "
+        f"reskontra {cov.payment_rows} rader, {edge.sek(cov.spend_sek)} | "
+        f"{cov.first_period}–{cov.last_period} ({cov.months} mån)"
+    )
+    for blocker in cov.blockers():
+        typer.echo(f"  ⚠️  {blocker}")
+
+
+@edge_app.command("coverage")
+def edge_coverage(
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """What each municipality can honestly be asked, before anything is claimed."""
+    with Storage(db) as storage:
+        conn = storage.connection()
+        buyers = sorted(
+            {r[0] for r in conn.execute("SELECT DISTINCT buyer_org FROM municipal_contracts")}
+            | {r[0] for r in conn.execute("SELECT DISTINCT payer_org FROM supplier_payments")}
+        )
+        for buyer in buyers:
+            cov = edge.coverage(conn, buyer)
+            _edge_header(cov)
+            typer.echo(
+                f"  mätbar: {'JA' if cov.measurable else 'NEJ'} | "
+                f"konto namngivet: {cov.accounts_named}"
+            )
+
+
+@edge_app.command("accounts")
+def edge_accounts(
+    kommun: str = typer.Argument(..., help="Buyer organisation, e.g. 'Huddinge kommun'"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Audit the classification: every account, its class, and what that cost."""
+    with Storage(db) as storage:
+        rows = edge.classification_audit(storage.connection(), kommun)
+    if not rows:
+        typer.echo(f"Ingen reskontra för {kommun!r}.")
+        raise typer.Exit(code=1)
+    by_class: dict[str, int] = {}
+    for row in rows:
+        by_class[row.cls] = by_class.get(row.cls, 0) + row.amount_sek
+    total = sum(by_class.values()) or 1
+    typer.echo(f"\n{kommun} — {len(rows)} konton, {edge.sek(total)}\n")
+    for cls, amount in sorted(by_class.items(), key=lambda i: -i[1]):
+        typer.echo(f"  {edge.sek(amount):>10}  {100 * amount / total:>5.1f}%  "
+                   f"{edge.CLASS_LABELS[cls]}")
+    typer.echo(f"\n{'belopp':>10}  {'klass':<12} konto")
+    for row in rows[:40]:
+        typer.echo(f"  {edge.sek(row.amount_sek):>10}  {row.cls:<12} {row.account or '(inget)'}")
+
+
+@edge_app.command("dormant")
+def edge_dormant(
+    kommun: str = typer.Argument(..., help="Buyer organisation, e.g. 'Huddinge kommun'"),
+    min_months: int = typer.Option(6, help="Ignore contracts live for fewer months than this"),
+    limit: int = typer.Option(30, help="How many suppliers to print"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Suppliers holding a live contract who were paid nothing."""
+    with Storage(db) as storage:
+        report = edge.dormant(storage.connection(), kommun, min_live_months=min_months)
+    _edge_header(report.coverage)
+    typer.echo(
+        f"\n  UPPHANDLINGSBARA AVTAL: {report.zero_paid} av {report.contracted} "
+        f"leverantörer fick noll kronor: {report.zero_rate}"
+    )
+    typer.echo(
+        f"  Vård/omsorg och LOV separat: {report.placement_zero} av "
+        f"{report.placement_contracted}: {report.placement_zero_rate} "
+        "— där är noll avrop normalt och ingen slutsats"
+    )
+    typer.echo(f"\n  {'mån':>4}  {'orgnr':<13}{'leverantör':<42}avtal")
+    for s in report.suppliers[:limit]:
+        typer.echo(
+            f"  {s.live_months:>4}  {s.supplier_orgnr or '':<13}"
+            f"{s.supplier_name[:40]:<42}{(s.titles or '')[:46]}"
+        )
+    for caveat in report.caveats:
+        typer.echo(f"\n> {caveat}")
+
+
+@edge_app.command("leakage")
+def edge_leakage(
+    kommun: str = typer.Argument(..., help="Buyer organisation, e.g. 'Huddinge kommun'"),
+    limit: int = typer.Option(25, help="How many accounts to print"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Procurable spend that went to suppliers holding no contract at the time."""
+    with Storage(db) as storage:
+        report = edge.leakage(storage.connection(), kommun)
+    _edge_header(report.coverage)
+    if not report.categories:
+        typer.echo("\n  Inga konton klassade som upphandlingsbara — saknar reskontran konton?")
+        raise typer.Exit(code=1)
+    typer.echo(
+        f"\n  Upphandlingsbart: {edge.sek(report.procurable_sek)}. "
+        f"Utan avtal: {edge.sek(report.off_contract_sek)} ({report.off_contract_share:.1%})"
+    )
+    for cls, amount in sorted(report.excluded.items(), key=lambda i: -i[1]):
+        typer.echo(f"    undantaget: {edge.sek(amount):>10}  {edge.CLASS_LABELS[cls]}")
+    typer.echo(
+        f"\n  {'utan avtal':>11}{'andel':>7}{'lev':>5}{'HHI':>6}{'trend':>7}  konto"
+    )
+    for c in report.categories[:limit]:
+        typer.echo(
+            f"  {edge.sek(c.off_contract_sek):>11}{c.off_contract_share:>7.0%}"
+            f"{c.suppliers:>5}{c.hhi:>6.2f}{c.trend.direction:>7}  {(c.account or '')[:44]}"
+        )
+    for caveat in report.caveats:
+        typer.echo(f"\n> {caveat}")
+
+
+@edge_app.command("pipeline")
+def edge_pipeline(
+    kommun: str = typer.Argument(..., help="Buyer organisation, e.g. 'Huddinge kommun'"),
+    days: int = typer.Option(365, help="Horizon in days"),
+    limit: int = typer.Option(30, help="How many contracts to print"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Contracts expiring soon, sized by what has actually been paid under them."""
+    with Storage(db) as storage:
+        cov, rows, caveats = edge.pipeline(storage.connection(), kommun, within_days=days)
+    _edge_header(cov)
+    open_market = [r for r in rows if r.cls != edge.CLASS_PLACEMENT]
+    placements = [r for r in rows if r.cls == edge.CLASS_PLACEMENT]
+    typer.echo(
+        f"\n  {len(rows)} leverantörer har avtal som löper ut inom {days} dagar "
+        f"({sum(r.contracts for r in rows)} avtal)."
+    )
+    typer.echo(
+        f"  Konkurrensutsatt marknad: {len(open_market)} leverantörer, "
+        f"{edge.sek(sum(r.run_rate_year_sek for r in open_market))}/år i observerat avrop."
+    )
+    typer.echo(
+        f"  Vård/omsorg och placering: {len(placements)} leverantörer, "
+        f"{edge.sek(sum(r.run_rate_year_sek for r in placements))}/år — egen logik, "
+        "räknas inte in ovan."
+    )
+    typer.echo(f"\n  {'årstakt':>10}{'dgr':>6}{'avt':>4}  {'slutar':<12}{'leverantör':<38}konto")
+    for r in [x for x in rows if x.cls != edge.CLASS_PLACEMENT][:limit]:
+        typer.echo(
+            f"  {edge.sek(r.run_rate_year_sek):>10}{r.days_left:>6}{r.contracts:>4}  "
+            f"{r.end_date:<12}{r.supplier_name[:36]:<38}{(r.accounts or '')[:38]}"
+        )
+    for caveat in caveats:
+        typer.echo(f"\n> {caveat}")
+
+
+@edge_app.command("benchmark")
+def edge_benchmark(
+    limit: int = typer.Option(25, help="How many accounts to print"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Accounts more than one municipality books against, ranked by the gap."""
+    with Storage(db) as storage:
+        rows = edge.benchmark(storage.connection())
+    if not rows:
+        typer.echo(
+            "Ingen jämförelse möjlig: färre än två kommuner har skickat en reskontra "
+            "som namnger konton."
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"\n  {'summa':>10}{'köpare':>8}  utan avtal            konto")
+    for b in rows[:limit]:
+        typer.echo(
+            f"  {edge.sek(b.spend_sek):>10}{b.buyers:>8}  {b.off_contract}  {b.account[:40]}"
+        )
+
+
+# Last line of the file on purpose. It used to sit a third of the way down,
+# above the frameworks/winners/payments/foia/kommun groups, so
+# `python -m tender_scan.cli foia due` called app() before those groups were
+# registered and answered "No such command 'foia'" — a missing feature, as far
+# as anyone reading the output could tell.
+if __name__ == "__main__":
+    app()

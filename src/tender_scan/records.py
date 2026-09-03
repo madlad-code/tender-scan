@@ -71,6 +71,12 @@ class SupplierPayment:
     source_url: str | None = None
     row_hash: str | None = None  # storage computes it via payment_row_hash when None
     ingested_at: str | None = None
+    # What the money bought and which unit spent it, when the ledger says so.
+    # Huddinge's does; Borås's and Bjurholm's do not, and leave both None.
+    # These are what separate procurable spend from grants, rents and transfers,
+    # which is the difference between an off-contract finding and a false one.
+    account: str | None = None
+    cost_centre: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

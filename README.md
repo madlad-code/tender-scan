@@ -157,6 +157,12 @@ merged into one free-text column, a contract system's PDF, and two spreadsheets
 whose column names agree on nothing. Each reader owns its format; nothing
 downstream branches on which municipality a row came from.
 
+Huddinge's ledger is the only one that names what the money bought. Its
+`Konto(T)` and `Ansvar(T)` are stored as `account` and `cost_centre`, and they
+are what separates procurable spend from pensions, rent and transfers. Where a
+ledger omits them both stay NULL and the grain is unchanged, so nothing that
+worked before them behaves differently.
+
 ### The rules the numbers obey
 
 - **A rate needs both halves.** `avtalstrohet` is computed only for a buyer whose
@@ -174,10 +180,65 @@ downstream branches on which municipality a row came from.
   proof of maverick buying, and every report says so.
 
 Measured on the first batch: 9 790 contract rows from five municipalities and
-11.1 bn SEK of ledger from two. One municipality delivered both halves —
-Bjurholm, where contracted suppliers received 25.3 % of the spend over 22 months,
-and half of the suppliers holding a live contract outside health and social care
-were paid nothing at all.
+19.4 bn SEK of ledger from four. Two municipalities delivered both halves —
+Bjurholm over 22 months, and Huddinge over 44, with 488 954 invoice lines that
+also name the account and the cost centre behind every one.
+
+## Where the contracts and the money disagree (M8)
+
+A catalogue says who may be bought from. A ledger says who was paid. Laying one
+over the other is the whole product, and `tender-scan edge` is the five ways of
+asking:
+
+```bash
+tender-scan edge coverage                     # what may honestly be asked, per municipality
+tender-scan edge accounts "Huddinge kommun"   # audit: every account and its class
+tender-scan edge dormant  "Huddinge kommun"   # live contracts that earned nothing
+tender-scan edge leakage  "Huddinge kommun"   # procurable spend without a live contract
+tender-scan edge pipeline "Huddinge kommun"   # contracts expiring, sized by observed spend
+```
+
+Three rules hold in every one of them, because breaking any turns a finding into
+a guess.
+
+**No rate without its denominator and its interval.** Every proportion carries
+`k`, `n` and a Wilson 95 % interval. "32 % of contracted suppliers were paid
+nothing" is not a number until it reads `31.8 % [28.6–35.2] n=745`.
+
+**Not all spend is procurable.** Huddinge's ledger is 8.11 bn SEK, and 5.49 bn of
+it is not a market: 2.73 bn of individual care placements, 1.79 bn of rent,
+925 MSEK of pensions and statutory transfers, 40 MSEK of regulated monopoly and
+tariff. Reporting those as "off-contract" would inflate the finding by a factor
+of three. The classification is a modelling choice, so `edge accounts` prints
+every rule, what it caught and what it cost, and a reader can disagree with one
+line instead of the total.
+
+**A place in a queue is not a contract.** Nearly half of Huddinge's catalogue is
+LOV and placement frameworks, where a supplier waits to be chosen by a resident
+and zero call-offs is the framework working as designed. Those are counted and
+reported separately, never in the headline.
+
+What that leaves, for Huddinge, 2023-01 to 2026-08:
+
+| | |
+|---|---|
+| Procurable spend | 2.62 bn SEK of 8.11 bn |
+| Paid to suppliers holding no live contract | 845 MSEK (32.2 %) |
+| Contracted suppliers paid nothing in 44 months | 237 of 745 — 31.8 % [28.6–35.2] |
+| Same, placement frameworks (reported apart) | 137 of 346 — 39.6 % [34.6–44.8] |
+| Contracts expiring within 12 months | 258 suppliers, 970 MSEK/year observed |
+
+A payment counts as on-contract only if the supplier's contract was live *that
+month*: a supplier whose framework ran 2023–2024 and who was paid in 2026 was
+paid off-contract, and a join on the supplier alone would score it as covered.
+Spend is attributed once per supplier, never once per contract — the ledger does
+not say which contract an invoice was called off against, so repeating a
+supplier's total against each of their five contracts would quintuple the same
+money.
+
+Concentration is reported as HHI per account with the trend over the ledger's
+months (Mann-Kendall, Sen's slope — rank-based, because monthly spend is spiky
+enough that a fitted slope follows the two biggest months).
 
 ## Quickstart
 

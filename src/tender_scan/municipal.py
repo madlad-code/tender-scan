@@ -226,7 +226,7 @@ def read_goteborg(blob: bytes) -> list[MunicipalContract]:
             MunicipalContract(
                 buyer_org="Göteborgs Stad",
                 supplier_name=supplier,
-                supplier_orgnr=clean(row[columns["Leverantör_Organisationsnummer_Original"]]),
+                supplier_orgnr=normalize_orgnr(clean(row[columns["Leverantör_Organisationsnummer_Original"]])),
                 contract_ref=clean(row[columns["Avtalsnummer_Original"]]),
                 title=clean(row[columns["Beställningsgrupp"]]),
                 category=clean(row[columns["Delområden"]]),
@@ -261,7 +261,7 @@ def read_huddinge(blob: bytes) -> list[MunicipalContract]:
                 MunicipalContract(
                     buyer_org="Huddinge kommun",
                     supplier_name=supplier,
-                    supplier_orgnr=clean(row[columns["Orgnr"]]),
+                    supplier_orgnr=normalize_orgnr(clean(row[columns["Orgnr"]])),
                     contract_ref=clean(row[columns["Diarie"]]),
                     title=clean(row[columns["Varugrupp"]]),
                     category=clean(row[columns["Kategori"]]),
@@ -309,7 +309,7 @@ def read_bjurholm(blob: bytes) -> list[MunicipalContract]:
             MunicipalContract(
                 buyer_org="Bjurholms kommun",
                 supplier_name=supplier,
-                supplier_orgnr=clean(row[columns["Orgnr"]]),
+                supplier_orgnr=normalize_orgnr(clean(row[columns["Orgnr"]])),
                 contract_ref=clean(row[columns["Diarie"]]),
                 title=clean(row[columns["Varugrupp"]]),
                 category=clean(row[columns["Kategori"]]),
@@ -434,7 +434,8 @@ class Ledger:
 
 
 def _aggregate(
-    rows: Iterable[tuple[str, str | None, str, int]],
+    rows: Iterable[tuple[str, str | None, str, int]]
+    | Iterable[tuple[str, str | None, str, int, str | None, str | None]],
     payer_org: str,
     payer_orgnr: str | None,
     source_url: str | None,
@@ -443,10 +444,22 @@ def _aggregate(
 
     The same aggregation `payments.base` performs, and for the same reason:
     it is what makes a re-ingest of the identical file a no-op.
+
+    Rows may carry two more fields — the account the line was booked against
+    and the cost centre that spent it. When they do, they join the grouping
+    key: a supplier paid out of two budgets in one month stays two rows, which
+    is the whole point of having asked for the columns. Ledgers without them
+    group exactly as before.
+
+    Lines that net to zero over a month are dropped. A credit note that
+    reverses an invoice in the same period is not spend, and a supplier whose
+    year nets to nothing did not sell anything.
     """
-    totals: dict[tuple[str, str | None, int, int], int] = defaultdict(int)
-    for period, orgnr, name, amount in rows:
-        totals[(name, orgnr, int(period[:4]), int(period[5:7]))] += amount
+    totals: dict[tuple[str, str | None, int, int, str | None, str | None], int] = defaultdict(int)
+    for row in rows:
+        period, orgnr, name, amount = row[:4]
+        account, cost_centre = (row[4], row[5]) if len(row) > 4 else (None, None)
+        totals[(name, orgnr, int(period[:4]), int(period[5:7]), account, cost_centre)] += amount
     return [
         SupplierPayment(
             payer_org=payer_org,
@@ -458,9 +471,19 @@ def _aggregate(
             period_month=month,
             source=SOURCE_FOIA,
             source_url=source_url,
+            account=account,
+            cost_centre=cost_centre,
         )
-        for (name, orgnr, year, month), amount in sorted(
-            totals.items(), key=lambda item: (item[0][0], item[0][1] or "", item[0][2], item[0][3])
+        for (name, orgnr, year, month, account, cost_centre), amount in sorted(
+            totals.items(),
+            key=lambda item: (
+                item[0][0],
+                item[0][1] or "",
+                item[0][2],
+                item[0][3],
+                item[0][4] or "",
+                item[0][5] or "",
+            ),
         )
         if amount
     ]
@@ -531,6 +554,52 @@ def read_bjurholm_ledger(blob: bytes, source_url: str | None = None) -> list[Sup
     return _aggregate(lines, "Bjurholms kommun", None, source_url)
 
 
+def read_huddinge_ledger(blob: bytes, source_url: str | None = None) -> list[SupplierPayment]:
+    """Huddinge kommun: the accounts-payable extract, one file per year.
+
+    The richest ledger any of the twenty sent. Besides the supplier and the
+    amount it names `Konto(T)` — what the money was booked as — and
+    `Ansvar(T)` — which unit spent it. Both are kept, because "Huddinge paid
+    Telia 4 MSEK" and "Huddinge paid Telia 4 MSEK for mobile telephony out of
+    twelve different schools' budgets" are different findings, and only the
+    second one tells a supplier where the buying decision is made.
+
+    `Period` is the accounting period as `YYYYMM` and is what the municipality
+    itself closes its books on, so it dates the row in preference to
+    `Ver.datum`, which is when the voucher happened to be entered.
+
+    Credit notes arrive as negative amounts and are kept as they are: they are
+    how a ledger reverses an invoice, and dropping them would overstate spend.
+    """
+    rows = _xlsx_rows(blob, 0)
+    columns = _header_index(
+        next(rows),
+        ("Period", "Organisationsnr.", "Lev.nr(T)", "Belopp", "Konto(T)", "Ansvar(T)"),
+        "Huddinge",
+    )
+    lines = []
+    for row in rows:
+        name = clean(row[columns["Lev.nr(T)"]])
+        period = clean(row[columns["Period"]])
+        amount = row[columns["Belopp"]]
+        if name is None or period is None or not isinstance(amount, int | float):
+            continue
+        if len(period) != 6 or not period.isdigit():
+            continue
+        orgnr = normalize_orgnr(clean(row[columns["Organisationsnr."]]))
+        lines.append(
+            (
+                f"{period[:4]}-{period[4:]}-01",
+                orgnr,
+                name,
+                int(round(amount)),
+                clean(row[columns["Konto(T)"]]),
+                clean(row[columns["Ansvar(T)"]]),
+            )
+        )
+    return _aggregate(lines, "Huddinge kommun", None, source_url)
+
+
 LEDGERS: dict[str, Ledger] = {
     lg.key: lg
     for lg in (
@@ -540,6 +609,12 @@ LEDGERS: dict[str, Ledger] = {
             "Bjurholms kommun",
             "Leverantörsreskontraöversikt (xlsx)",
             read_bjurholm_ledger,
+        ),
+        Ledger(
+            "huddinge",
+            "Huddinge kommun",
+            "Leverantörsreskontra med konto och ansvar, ett år per fil (xlsx)",
+            read_huddinge_ledger,
         ),
     )
 }
