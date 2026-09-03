@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-09-03 06:49 UTC._
+_Genererad 2026-09-03 06:53 UTC._
 
 ## Planen och kontakterna
 
@@ -111,11 +111,12 @@ köra det.
 ## Kod
 
 - Gren: `main`
-- **1 commit opushad** till `origin/main`
-- Arbetsträd: 9 ändrade filer
+- Synkad med `origin/main`
+- Arbetsträd: rent
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `d8fce29` | 2026-09-03 | feat(m8): lay the catalogue over the ledger and measure where they disagree |
 | `96ae990` | 2026-09-02 | feat(m7): read what the municipalities actually sent back |
 | `3da8faf` | 2026-09-01 | feat(m3): foia ingest --partial, so half a delivery does not retire a request |
 | `3cd8b89` | 2026-09-01 | feat(setup): bootstrap a fresh clone and say what it lacks |
@@ -123,17 +124,16 @@ köra det.
 | `816268b` | 2026-09-01 | feat(m3): foia note, for what no other field captures |
 | `d1ffebb` | 2026-08-31 | feat(state): warn when the running image predates the code |
 | `260087a` | 2026-08-31 | chore(state): refresh |
-| `269d539` | 2026-08-31 | fix(ci): put the repo root on sys.path for bare pytest |
 
 ## Vad som kör
 
 | Container | Status | Image |
 | --- | --- | --- |
-| `tender-scan-app-1` | Up About an hour | `tender-scan-app` |
+| `tender-scan-app-1` | Up 13 seconds | `tender-scan-app` |
 | `tender-scan-tailscale-1` | Up About an hour | `tailscale/tailscale:latest` |
 
-- Image `tender-scan-app` byggd: 2026-09-02 13:02:59 UTC
-- ⚠️ **Imagen är 9 min äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
+- Image `tender-scan-app` byggd: 2026-09-03 08:53:00 UTC
+- Image är nyare än senaste commit — containern kör aktuell kod.
 - Nås bara över tailnet: **http://tender-scan:8000**. `localhost:8000` är avsiktligt stängt (`network_mode: service:tailscale`).
 
 ## Vad databasen innehåller
