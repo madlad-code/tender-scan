@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-09-03 07:16 UTC._
+_Genererad 2026-09-08 23:19 UTC._
 
 ## Planen och kontakterna
 
@@ -13,73 +13,95 @@ _Genererad 2026-09-03 07:16 UTC._
 
 _Den här delen skrivs aldrig över av generatorn. Håll den kort och ärlig._
 
-- **Läge:** M0–M8 klara och testade. M8 är nytt: `tender-scan edge`, verktygen
-  som lägger avtalskatalogen ovanpå reskontran och räknar ut var de säger emot
-  varandra.
-- **Huddinge är komplett.** Reskontran kom 2026-09-02 (fyra filer, 488 954
-  fakturarader 2023-01..2026-08, 8,11 mdr) och är inläst. Huddinge är enda
-  kommunen vars reskontra namnger konto och ansvar — vad pengarna gick till och
-  vilken enhet som köpte. Ärende #7 är `received`.
-- **Två kompletta par nu:** Bjurholm (23 mån) och Huddinge (44 mån).
-  Databasen har 9 790 avtalsrader och 204 799 betalningsrader, 19,4 mdr.
+- **Läge:** M0–M8 klara. Sedan 3 september har korpusen vuxit från två kommuner
+  till **fyra som går att räkna på** — Borås, Falun, Huddinge, Hässleholm.
+  Falun och Kalmar levererade 2026-09-08.
+- **Analysen ligger utanför CLI:t.** Fyrkommunsbasen bor i
+  `data/analysis/tender.duckdb` (418 MB) med skripten `etl.py` → `build_db.py` →
+  `a1`–`a8`, och resultaten som 29 csv-filer i `data/analysis/results/`.
+  `data/tender_scan.db` känner fortfarande bara till 204 799 betalningsrader.
+  **De två är inte synkade, och det är den största tekniska skulden just nu.**
+- **Säljunderlaget är klart.** `data/outreach/ringlista_2026-09.md` — 27 bolag med
+  verifierad telefon och e-post, ringordning, manus per segment. Underlaget är
+  bolagens egna fakturarader i de fyra kommunerna.
 
 ### Vad som faktiskt går att påstå, med siffror
 
-Huddinge, 2023-01..2026-08, efter att transfereringar, hyra, monopol och
-individuella placeringar tagits bort ur basen:
+Fyra kommuner, **3 186 210 fakturarader, 12 737 leverantörer, 27,6 mdr kr**.
+Efter att transfereringar, hyra, monopol och individuella placeringar tagits bort:
+**11,1 mdr upphandlingsbart** inom varje kommuns täta fönster.
 
-| | |
-| --- | --- |
-| Upphandlingsbart | 2,62 mdr av 8,11 mdr |
-| Betalt till leverantör utan löpande avtal | 845 mkr (32,2 %) |
-| Avtalsleverantörer med noll kronor på 44 mån | 237 av 745 — 31,8 % [28,6–35,2] |
-| Samma sak, placeringsavtal (redovisas separat) | 137 av 346 — 39,6 % [34,6–44,8] |
-| Avtal som löper ut inom 12 mån | 258 leverantörer, 970 mkr/år |
+| Kommun | Fönster | Upphandlingsbart | Betalt utan avtal | Avtalsleverantörer med noll kr |
+| --- | --- | --- | --- | --- |
+| Borås | 2023-01–2025-12 (36 mån) | 3 407 mkr | 47,6 % | 41,5 % [37,7–45,3] |
+| Falun | 2024-01–2026-09 (21 mån) | 3 099 mkr | 43,6 % | 68,0 % [64,3–71,4] |
+| Huddinge | 2024-01–2025-12 (24 mån) | 2 465 mkr | 23,3 % | 44,4 % [41,0–47,8] |
+| Hässleholm | 2023-01–2026-08 (44 mån) | 2 125 mkr | 38,4 % | 40,2 % [35,5–45,1] |
+
+**Detta ersätter de tidigare Huddingesiffrorna.** 32,2 % utan avtal och 31,8 %
+vilande avtal räknades över 44 månader. Huddinges 2023 och 2026 är fragment
+(790 respektive 1 271 rader/månad mot 19 526 för 2024–25), så det täta fönstret
+är 24 månader och siffrorna blev 23,3 % och 44,4 %.
+
+**Faluns 68 % är den svagaste siffran i tabellen.** Faluns katalog innehåller
+inte ett enda organisationsnummer på 1 174 rader, så kopplingen görs på namn —
+och 27,2 % av de "vilande" leverantörerna har en trolig namnträff i reskontran
+ändå. För Borås, Huddinge och Hässleholm är motsvarande fel 5,6–7,8 %.
+
+**IT- och konsultskivan, som är den vi säljer mot:** 742 mkr i Huddinge (30 % av
+det upphandlingsbara), 790 mkr i Borås, 632 mkr i Hässleholm, 308 mkr i Falun.
+Av konsulttimmarna går **73–99 % till andra än de stora integratörerna** — det är
+den marknad kunderna faktiskt konkurrerar på.
 
 **Vad som fortfarande inte går att påstå:** takvolym mot verkligt avrop. Bara
-Jönköping publicerar avtalsvärden (480 avtal, 5,13 mdr) och Jönköping har inte
-skickat reskontra. Antalet kommuner där tak och utfall kan jämföras är noll.
+Jönköping har lämnat avtalsvärden (447 tak), och Jönköping har inte lämnat
+reskontra. Antalet kommuner där tak och utfall kan jämföras är fortfarande **noll**.
+Rangordning saknas överallt utom hos Göteborg (1 486 rader) och Grästorp (50),
+så varje dormanssiffra ovan är en **övre gräns**, inte en mätning.
 
-**Kör `tender-scan db check`** för att se vilka kommuner som saknar vilken halva.
-
-Analysen ligger som artefakt: *Avtalsglappet i Huddinge*,
-https://claude.ai/code/artifact/621f7123-2b0d-4f90-ba85-d74a11f7d132
-Den innehåller också invändningarna — viktigast: Huddinges katalog saknar
-rangordning helt (0 av 2 365 rader), så 237 är en **övre gräns** på antalet
-vilande avtal, inte en mätning. Be om rangkolumnen i nästa begäran.
+Analysen av Huddinge ensam ligger som artefakt: *Avtalsglappet i Huddinge*,
+https://claude.ai/code/artifact/621f7123-2b0d-4f90-ba85-d74a11f7d132 — dess
+siffror är nu ersatta av tabellen ovan.
 
 ### KRÄVER SVAR AV DIG
 
-1. **Katrineholm (#15)** vill ha fakturaadress innan de gör något. 10–16 filer.
-2. **Karlstad (#8)** vill ha principbesked om avgift (100 kr/50 sidor + 2 kr/sida)
-   innan de räknar sidor. Sätt ett tak i svaret.
-3. **Hässleholm (#13)**: 161 kr accepterat 2026-08-31, 19 filer. Jaga fakturan.
-4. **19 ärenden ligger på dag 3-påminnelse.** `tender-scan foia due`.
-5. **Huddinges följebrev är inte läst.** Filerna identifierades på innehållet,
-   inte på ett mejl. Finns det en avgift eller ett villkor i det mejlet vet vi
-   inte om det.
+1. **Betalkanalen finns inte.** Egenanställning eller eget bolag måste vara
+   uppsatt innan första samtalet — och Katrineholm (#15) väntar dessutom på en
+   fakturaadress som inte finns förrän du valt. Blockerar både sälj och data.
+2. **Karlstad (#8)** vill ha principbesked om avgift. Svara med ett tak,
+   förslagsvis 500 kr, annars räknar de aldrig sidorna.
+3. **Borås 2026-fil** utlovades till 9 september. Det är idag.
+4. **Huddinges följebrev är fortfarande inte läst.** Filerna identifierades på
+   innehåll. Villkor eller avgift i det mejlet är okänt.
+5. **Tio kommuner är tysta** och ligger på dag 8. `tender-scan foia due`.
 
-### Nästa datajobb, i prioritetsordning
+### Nästa steg
 
-1. **Borås avtalskatalog** från Koncerninköp. Reskontran (10,75 mdr, 3 år) finns
-   redan; katalogen gör den mätbar och ger par nummer tre. 2026-filen utlovad 9 sep.
-2. **Ett tredje par med konton.** Två kommuner är ingen jämförelsegrupp —
-   `edge benchmark` säger ingenting förrän en tredje reskontra med konton kommer.
-   Be uttryckligen om kontobenämning i nästa batch.
-3. **Göteborgs reskontra** behöver ingen begäran — staden hänvisade till sin öppna
-   data och repot har redan laddaren: `tender-scan payments load goteborg`.
-   Obs: M4-raderna är filtrerade till TED-vinnare och används därför aldrig som
-   nämnare i M7/M8; en full inläsning behöver gå in som `source='foia'`.
+Sälj före kod. Enda verkliga blockeraren i produkten är att
+**exempelrapporten inte finns**. Säljplanen och datastrategin ligger lokalt,
+utanför repot.
 
-### Allt bor nu i data/
+Teknisk skuld i prioritetsordning:
 
-`data/` — databasen, `outreach/` (utskickslistan, mallarna, `send_batch.py`),
-`ATTACHMENTS/` (alla inkomna handlingar, 108 MB) och `backups/`.
-`~/Desktop/OUTREACH` finns inte längre; allt verifierades byte-identiskt först.
+1. Fold fyrkommunsbasen in i `data/tender_scan.db` så CLI:t och webbvyn ser samma
+   verklighet som analysen.
+2. `tender-scan kundrapport --orgnr` — rapport nummer två får inte kräva ny SQL.
+3. `edge benchmark` har äntligen underlag (fyra kommuner med kontobenämning).
+   Kör den.
+4. Göteborgs reskontra behöver ingen begäran — `tender-scan payments load goteborg`.
+   Obs: M4-raderna är filtrerade till TED-vinnare och duger inte som nämnare;
+   en full inläsning måste gå in som `source='foia'`.
+
+### Allt bor i data/
+
+`data/` — `tender_scan.db`, `analysis/` (DuckDB-basen och skripten), `raw/`
+(alla inkomna handlingar, 532 MB), `workbench/` (den äldre analysen från 4 sep),
+`outreach/` (ringlistan, säljlistan, mallarna, `send_batch.py`) och `backups/`.
 
 **`data/` är gitignorerat två gånger om** — dels av rot-`.gitignore`, dels av
-`data/.gitignore` som spärrar allt. Ingenting härifrån kan committas av misstag.
-**Ingen backup utanför maskinen.** Databasen innehåller personnummer
+`data/.gitignore` som spärrar allt. Säljlistan och ringlistan kan alltså inte
+committas av misstag, och får inte heller läggas någon annanstans.
+**Ingen backup utanför maskinen.** Materialet innehåller personnummer
 (enskilda firmor), tjänstemäns namn och myndighetsmaterial.
 
 ### Skickade mejl och kontakter
@@ -94,13 +116,20 @@ Allt annat — säljmejl, samtal, möten — skrivs för hand här._
 ### Vad som är facit, och vad som inte kör av sig självt
 
 - **Facit = tabellen `foia_requests`.** `foia due` läser den och ingenting annat.
-  `data/outreach/batch1_pilot.csv` är en *inmatning* via `foia import`,
-  aldrig en parallell sanning.
-- **Det finns EN databas**, `data/tender_scan.db`, med åtta tabeller.
-  `tender-scan db status` säger vad var och en är och vilket kommando som fyller den.
-- **Ingenting är automatiserat.** Ingen crontab, ingen systemd-timer, ingen
-  schemalagd agent. `foia due` *listar* vad som förfallit när du kör den.
-  `send_batch.py` skickar bara när du själv kör den med `--live`.
+  Den var 2026-09-09 fyra leveranser efter verkligheten; Falun, Kalmar,
+  Hässleholm och Gävle är nu inlagda som `partial`.
+- **Kalmar lämnade ett delvis avslag** (KS 2026/0583, 2026-09-07): rader som rör
+  socialtjänst är maskerade enligt 26 kap. 1 § OSL. Överklagbart till
+  Kammarrätten i Jönköping till omkring 2026-09-29 — men de maskerade raderna är
+  individplaceringar som ändå räknas bort, så överklaga inte.
+- **Kalmars reskontra är inte fakturarader** utan leverantörssummor per år
+  (2 687 rader/år, inget konto). Kalmar är alltså inte en femte mätbar kommun.
+- **Det finns EN produktionsdatabas**, `data/tender_scan.db`, med åtta tabeller.
+  `tender-scan db status` säger vad var och en är. DuckDB-basen i `data/analysis/`
+  är en analysartefakt, inte en andra sanning — men den är just nu större.
+- **Ingenting är automatiserat.** Ingen crontab, ingen timer, ingen schemalagd
+  agent. `foia due` *listar* vad som förfallit när du kör den. `send_batch.py`
+  skickar bara med `--live`.
 
 ### Om du kör i en molncontainer
 
@@ -118,10 +147,11 @@ köra det.
 
 - Gren: `main`
 - Synkad med `origin/main`
-- Arbetsträd: rent
+- Arbetsträd: 4 ändrade filer
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `2690e69` | 2026-09-03 | style: run ruff format, fix CI |
 | `f6f38e6` | 2026-09-03 | docs(state): link the Huddinge analysis and its strongest objection |
 | `88dcad9` | 2026-09-03 | fix(m8): size an expiring contract from its own months, not the supplier's history |
 | `e2b3689` | 2026-09-03 | chore(state): refresh after M8 |
@@ -129,17 +159,16 @@ köra det.
 | `96ae990` | 2026-09-02 | feat(m7): read what the municipalities actually sent back |
 | `3da8faf` | 2026-09-01 | feat(m3): foia ingest --partial, so half a delivery does not retire a request |
 | `3cd8b89` | 2026-09-01 | feat(setup): bootstrap a fresh clone and say what it lacks |
-| `128b1e1` | 2026-09-01 | docs(state): hand off the Gmail triage of batch 1 to the next session |
 
 ## Vad som kör
 
 | Container | Status | Image |
 | --- | --- | --- |
-| `tender-scan-app-1` | Up 22 minutes | `tender-scan-app` |
-| `tender-scan-tailscale-1` | Up 2 hours | `tailscale/tailscale:latest` |
+| `tender-scan-app-1` | Up 37 minutes | `tender-scan-app` |
+| `tender-scan-tailscale-1` | Up 37 minutes | `tailscale/tailscale:latest` |
 
 - Image `tender-scan-app` byggd: 2026-09-03 08:53:00 UTC
-- ⚠️ **Imagen är 8 min äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
+- ⚠️ **Imagen är 29 min äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
 - Nås bara över tailnet: **http://tender-scan:8000**. `localhost:8000` är avsiktligt stängt (`network_mode: service:tailscale`).
 
 ## Vad databasen innehåller
@@ -164,14 +193,14 @@ köra det.
 | 16 | Härnösands kommun | `–` | 2026-08-31 | sent |
 | 15 | Katrineholms kommun | `–` | 2026-08-31 | sent |
 | 14 | Enköpings kommun | `–` | 2026-08-31 | sent |
-| 13 | Hässleholms kommun | `–` | 2026-08-31 | sent |
-| 12 | Kalmar kommun | `–` | 2026-08-31 | sent |
-| 11 | Falu kommun | `–` | 2026-08-31 | sent |
+| 13 | Hässleholms kommun | `–` | 2026-08-31 | partial |
+| 12 | Kalmar kommun | `–` | 2026-08-31 | partial |
+| 11 | Falu kommun | `–` | 2026-08-31 | partial |
 | 10 | Haninge kommun | `–` | 2026-08-31 | sent |
 | 9 | Halmstads kommun | `–` | 2026-08-31 | sent |
 | 8 | Karlstads kommun | `–` | 2026-08-31 | sent |
 | 7 | Huddinge kommun | `–` | 2026-08-31 | received |
-| 6 | Gävle kommun | `–` | 2026-08-31 | sent |
+| 6 | Gävle kommun | `–` | 2026-08-31 | partial |
 | 5 | Eskilstuna kommun | `–` | 2026-08-31 | sent |
 | 4 | Borås stad | `–` | 2026-08-31 | partial |
 | 3 | Jönköpings kommun | `–` | 2026-08-31 | partial |
