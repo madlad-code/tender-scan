@@ -636,3 +636,220 @@ def test_read_huddinge_ledger_needs_its_columns():
 
 def test_huddinge_is_registered_as_a_ledger_source():
     assert municipal.LEDGERS["huddinge"].buyer_org == "Huddinge kommun"
+
+
+# -- read_hassleholm ----------------------------------------------------------
+
+_HASSLEHOLM_HEADER = [
+    "Avtalsnummer",
+    "Diarienummer",
+    "Avtalsnamn",
+    "Avtalets startdatum",
+    "Avtalet löper ut",
+    "Hässleholms Inköpskategorier",
+    "Leverantör namn",
+    "Leverantör orgnr",
+    "Förlängningsvillkor",
+]
+
+
+def test_read_hassleholm_reads_a_contract_row():
+    blob = _xlsx(
+        {
+            "Report": [
+                _HASSLEHOLM_HEADER,
+                [
+                    "39248",
+                    "KLK 2018/945",
+                    "Matdistribution Förskola",
+                    "2019-01-21",
+                    "2023-01-20",
+                    None,
+                    "Vittsjö Transport & Buss",
+                    "556459-9107",
+                    None,
+                ],
+            ]
+        }
+    )
+    (row,) = municipal.read_hassleholm(blob)
+    assert row.buyer_org == "Hässleholms kommun"
+    assert row.supplier_name == "Vittsjö Transport & Buss"
+    assert row.supplier_orgnr == "556459-9107"
+    assert row.contract_ref == "39248"
+    assert (row.start_date, row.end_date) == ("2019-01-21", "2023-01-20")
+
+
+def test_hassleholm_is_registered_as_a_catalogue_source():
+    assert municipal.CATALOGUES["hassleholm"].buyer_org == "Hässleholms kommun"
+
+
+# -- read_haninge --------------------------------------------------------------
+
+_HANINGE_HEADER = [
+    "Namn",
+    "Referensnummer",
+    "Avtalstyp",
+    "Startdatum",
+    "Slutdatum",
+    "Leverantör",
+    "Organisationsnummer",
+    "Förlängning i antal månader",
+    "Antal förlängningar",
+    "Avtalsområde",
+]
+
+
+def test_read_haninge_reads_a_contract_row():
+    blob = _xlsx(
+        {
+            "Data": [
+                _HANINGE_HEADER,
+                [
+                    "Administrativa bemanningstjänster",
+                    "UPP 2026-00022",
+                    "Ramavtal",
+                    "2026-01-29",
+                    "2028-01-28",
+                    "Adecco Sweden AB",
+                    "5564472677",
+                    12,
+                    2,
+                    "Bemanningstjänster",
+                ],
+            ]
+        }
+    )
+    (row,) = municipal.read_haninge(blob)
+    assert row.buyer_org == "Haninge kommun"
+    assert row.supplier_name == "Adecco Sweden AB"
+    assert row.supplier_orgnr == "556447-2677"
+    assert row.contract_ref == "UPP 2026-00022"
+    assert row.title == "Administrativa bemanningstjänster"
+
+
+def test_haninge_is_registered_as_a_catalogue_and_ledger_source():
+    assert municipal.CATALOGUES["haninge"].buyer_org == "Haninge kommun"
+    assert municipal.LEDGERS["haninge"].buyer_org == "Haninge kommun"
+
+
+# -- read_haninge_ledger --------------------------------------------------------
+
+_HANINGE_LEDGER_HEADER = [
+    "Leverantör",
+    "Leverantörs organisationsnummer",
+    "Fakturadatum",
+    "Nettobelopp på konteringsrad",
+    "Konto",
+    "Konto beskrivning",
+    "Verksamhet",
+    "Verksamhet beskrivning",
+    "Organisation",
+]
+
+
+def _haninge_ledger_row(supplier, orgnr, date_str, amount, account, cost_centre):
+    return [
+        supplier,
+        orgnr,
+        date_str,
+        amount,
+        None,
+        account,
+        None,
+        cost_centre,
+        "Haninge Kommun",
+    ]
+
+
+def test_read_haninge_ledger_keeps_account_and_cost_centre():
+    blob = _xlsx(
+        {
+            "Rapportdata": [
+                _HANINGE_LEDGER_HEADER,
+                _haninge_ledger_row(
+                    "IST Sverige AB", "5560285739", "2023-03-14", 1500, "Läromedel", "Grundskola"
+                ),
+            ]
+        }
+    )
+    (row,) = municipal.read_haninge_ledger(blob)
+    assert row.account == "Läromedel"
+    assert row.cost_centre == "Grundskola"
+    assert (row.period_year, row.period_month) == (2023, 3)
+    assert row.amount_sek == 1500
+
+
+def test_read_haninge_ledger_needs_its_columns():
+    blob = _xlsx({"Rapportdata": [["Leverantör", "Nettobelopp på konteringsrad"], ["X", 5]]})
+    with pytest.raises(municipal.ReaderError):
+        municipal.read_haninge_ledger(blob)
+
+
+# -- read_hassleholm_ledger -----------------------------------------------------
+
+_HASSLEHOLM_LEDGER_HEADER = [
+    "Period",
+    "Konto",
+    "Organisationsnr.",
+    "Resk.nr (T)",
+    "Belopp",
+    "Konto (T)",
+    "Ansvar (T)",
+]
+
+
+def _hassleholm_row(period, konto, orgnr, supplier, amount, konto_t, ansvar_t):
+    return [period, konto, orgnr, supplier, amount, konto_t, ansvar_t]
+
+
+def test_read_hassleholm_ledger_keeps_only_cost_accounts():
+    """A voucher's own balancing entry against 2510 (Leverantörsskulder) must
+    not be summed alongside the expense line it funded, or every invoice
+    nets to roughly zero."""
+    blob = _xlsx(
+        {
+            "202301-202303": [
+                _HASSLEHOLM_LEDGER_HEADER,
+                _hassleholm_row(
+                    202301, 2510, 5591270789, "NEM Agentur AB", -1000, "Leverantörsskulder", None
+                ),
+                _hassleholm_row(
+                    202301, 6440, 5591270789, "NEM Agentur AB", 1000, "Livsmedel", "Kök"
+                ),
+            ]
+        }
+    )
+    (row,) = municipal.read_hassleholm_ledger(blob)
+    assert row.amount_sek == 1000
+    assert row.account == "Livsmedel"
+    assert row.supplier_orgnr == "559127-0789"
+
+
+def test_read_hassleholm_ledger_uses_the_last_sheet_when_parameters_come_first():
+    """Five of the eighteen real deliveries prepend a `Parameters` sheet."""
+    blob = _xlsx(
+        {
+            "Parameters": [["client", "10"], ["user_id", "1010897"]],
+            "202304-202305": [
+                _HASSLEHOLM_LEDGER_HEADER,
+                _hassleholm_row(
+                    202304, 6440, 5591270789, "NEM Agentur AB", 500, "Livsmedel", "Kök"
+                ),
+            ],
+        }
+    )
+    (row,) = municipal.read_hassleholm_ledger(blob)
+    assert row.amount_sek == 500
+    assert (row.period_year, row.period_month) == (2023, 4)
+
+
+def test_hassleholm_is_registered_as_a_ledger_source():
+    assert municipal.LEDGERS["hassleholm"].buyer_org == "Hässleholms kommun"
+
+
+def test_hassleholm_ledger_and_catalogue_agree_on_the_buyer_name():
+    """The eighteen period-named files were once read in as Kalmar. A ledger
+    whose buyer spells itself differently from its own catalogue is a second
+    municipality to every join downstream, so the two must match exactly."""
+    assert municipal.LEDGERS["hassleholm"].buyer_org == municipal.CATALOGUES["hassleholm"].buyer_org

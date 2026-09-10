@@ -410,6 +410,135 @@ def read_jonkoping(blob: bytes) -> list[MunicipalContract]:
     return out
 
 
+def read_hassleholm(blob: bytes) -> list[MunicipalContract]:
+    """Hässleholms kommun: one sheet, `Report`, one row per contract.
+
+    `Förlängningsvillkor` is free text ("1 år i taget, max 2 ggr") rather than
+    a rank or a term count, so it is dropped rather than mis-parsed into a
+    field it does not fit.
+    """
+    rows = _xlsx_rows(blob, "Report")
+    columns = _header_index(
+        next(rows),
+        (
+            "Avtalsnummer",
+            "Diarienummer",
+            "Avtalsnamn",
+            "Avtalets startdatum",
+            "Avtalet löper ut",
+            "Hässleholms Inköpskategorier",
+            "Leverantör namn",
+            "Leverantör orgnr",
+        ),
+        "Hässleholm",
+    )
+    out = []
+    for row in rows:
+        supplier = clean(row[columns["Leverantör namn"]])
+        if supplier is None:
+            continue
+        out.append(
+            MunicipalContract(
+                buyer_org="Hässleholms kommun",
+                supplier_name=supplier,
+                supplier_orgnr=normalize_orgnr(clean(row[columns["Leverantör orgnr"]])),
+                contract_ref=clean(row[columns["Avtalsnummer"]])
+                or clean(row[columns["Diarienummer"]]),
+                title=clean(row[columns["Avtalsnamn"]]),
+                category=clean(row[columns["Hässleholms Inköpskategorier"]]),
+                start_date=parse_iso_date(row[columns["Avtalets startdatum"]]),
+                end_date=parse_iso_date(row[columns["Avtalet löper ut"]]),
+            )
+        )
+    return out
+
+
+def read_haninge(blob: bytes) -> list[MunicipalContract]:
+    """Haninge kommun: an e-avrop `Data` sheet, one row per supplier per contract.
+
+    `Förlängning i antal månader` and `Antal förlängningar` describe the
+    option structure rather than a single rank, and there is no ranked-place
+    column at all, so `rank` is left unset here.
+    """
+    rows = _xlsx_rows(blob, "Data")
+    columns = _header_index(
+        next(rows),
+        (
+            "Namn",
+            "Referensnummer",
+            "Avtalstyp",
+            "Startdatum",
+            "Slutdatum",
+            "Leverantör",
+            "Organisationsnummer",
+            "Avtalsområde",
+        ),
+        "Haninge",
+    )
+    out = []
+    for row in rows:
+        supplier = clean(row[columns["Leverantör"]])
+        if supplier is None:
+            continue
+        out.append(
+            MunicipalContract(
+                buyer_org="Haninge kommun",
+                supplier_name=supplier,
+                supplier_orgnr=normalize_orgnr(clean(row[columns["Organisationsnummer"]])),
+                contract_ref=clean(row[columns["Referensnummer"]]),
+                title=clean(row[columns["Namn"]]),
+                category=clean(row[columns["Avtalstyp"]]),
+                start_date=parse_iso_date(row[columns["Startdatum"]]),
+                end_date=parse_iso_date(row[columns["Slutdatum"]]),
+            )
+        )
+    return out
+
+
+_GAVLE_HEADER = {"Avtalsnum", "Avtalsnummer"}
+
+
+def read_gavle(blob: bytes) -> list[MunicipalContract]:
+    """Gävle kommun: a Flexite PDF export, one table repeated across 11 pages.
+
+    `Förlängning`, `Avtalsområde` and `Diarienummer` come out of the PDF's
+    table extraction with their text interleaved — the export wraps them
+    across lines with no column rule pdfplumber can follow, e.g. `kPar
+    ongyrtatjmasv)a ro26-09-20`. Only the columns that extract cleanly
+    (name, supplier, orgnr, term) are kept; the rest is not guessable from
+    scrambled text and is left unset rather than stored wrong.
+    """
+    try:
+        import pdfplumber
+    except ModuleNotFoundError as exc:  # pragma: no cover - dependency guard
+        raise ReaderError("pdfplumber is required to read the Gävle PDF") from exc
+    out = []
+    with pdfplumber.open(io.BytesIO(blob)) as pdf:
+        for page in pdf.pages:
+            for table in page.extract_tables():
+                for row in table:
+                    if not row or len(row) < 6:
+                        continue
+                    first = clean(row[0])
+                    if first is None or "".join((first or "").split()) in _GAVLE_HEADER:
+                        continue
+                    supplier = clean(row[2])
+                    if supplier is None:
+                        continue
+                    out.append(
+                        MunicipalContract(
+                            buyer_org="Gävle kommun",
+                            supplier_name=supplier,
+                            supplier_orgnr=normalize_orgnr(clean(row[3])),
+                            contract_ref=first,
+                            title=clean(row[1]),
+                            start_date=parse_iso_date(row[4]),
+                            end_date=parse_iso_date(row[5]),
+                        )
+                    )
+    return out
+
+
 CATALOGUES: dict[str, Catalogue] = {
     c.key: c
     for c in (
@@ -418,6 +547,11 @@ CATALOGUES: dict[str, Catalogue] = {
         Catalogue("bjurholm", "Bjurholms kommun", "Avtalsstatistik e-avrop (xls)", read_bjurholm),
         Catalogue("grastorp", "Grästorps kommun", "Avtalsdatabasen Mercell (xlsx)", read_grastorp),
         Catalogue("jonkoping", "Jönköpings kommun", "ContractExport (pdf)", read_jonkoping),
+        Catalogue(
+            "hassleholm", "Hässleholms kommun", "Avtalskatalogen, Report (xlsx)", read_hassleholm
+        ),
+        Catalogue("haninge", "Haninge kommun", "Avtalskatalogen, Data (xlsx)", read_haninge),
+        Catalogue("gavle", "Gävle kommun", "Flexite aktiva avtal 2023-2026 (pdf)", read_gavle),
     )
 }
 
@@ -602,6 +736,109 @@ def read_huddinge_ledger(blob: bytes, source_url: str | None = None) -> list[Sup
     return _aggregate(lines, "Huddinge kommun", None, source_url)
 
 
+def read_hassleholm_ledger(blob: bytes, source_url: str | None = None) -> list[SupplierPayment]:
+    """Hässleholms kommun: a voucher-line dump, one file per quarter (some per month).
+
+    The eighteen files are named for the period they cover — `202301-202303`
+    through `202607-202608` — and carry no municipality name anywhere in the
+    file, which is how they were first read in under the wrong buyer. What
+    identifies them is the content: `Ansvar (T)` holds cost centres such as
+    "Skansenhemmet, Vittsjö", and Vittsjö is in Hässleholm.
+
+    The sheet name is the file's own period range and differs per delivery,
+    so it is read by position rather than by name — the last sheet, since
+    five of the eighteen deliveries prepend a `Parameters` sheet recording
+    the export's own query filters ahead of the data. `Resk.nr (T)` is the
+    supplier's name — `Motpart (T)` is a counterparty *category*
+    ("PRIVATA FÖRETAG") shared by thousands of suppliers and must not be
+    mistaken for one. `Period` arrives as a bare integer (`202301`), not the
+    zero-padded string Huddinge's ledger uses.
+
+    Every voucher carries its own balancing entry against account 2510,
+    `Leverantörsskulder` (accounts payable), often alongside a VAT line —
+    this is a full voucher dump, not a pre-filtered expense extract like
+    Huddinge's, and summing every row nets an invoice almost to zero: the
+    payable entry cancels the expense it funded. Only BAS-plan cost
+    accounts (`Konto` 4000-7999) are kept — the same boundary the chart of
+    accounts itself draws between spend and balance sheet or revenue.
+    """
+    rows = _xlsx_rows(blob, -1)
+    columns = _header_index(
+        next(rows),
+        ("Period", "Konto", "Organisationsnr.", "Resk.nr (T)", "Belopp", "Konto (T)", "Ansvar (T)"),
+        "Hässleholm",
+    )
+    lines = []
+    for row in rows:
+        name = clean(row[columns["Resk.nr (T)"]])
+        period = clean(row[columns["Period"]])
+        amount = row[columns["Belopp"]]
+        if name is None or period is None or not isinstance(amount, int | float):
+            continue
+        if len(period) != 6 or not period.isdigit():
+            continue
+        try:
+            if not (4000 <= int(row[columns["Konto"]]) <= 7999):
+                continue
+        except (TypeError, ValueError):
+            continue
+        orgnr = normalize_orgnr(clean(row[columns["Organisationsnr."]]))
+        lines.append(
+            (
+                f"{period[:4]}-{period[4:]}-01",
+                orgnr,
+                name,
+                int(round(amount)),
+                clean(row[columns["Konto (T)"]]),
+                clean(row[columns["Ansvar (T)"]]),
+            )
+        )
+    return _aggregate(lines, "Hässleholms kommun", None, source_url)
+
+
+def read_haninge_ledger(blob: bytes, source_url: str | None = None) -> list[SupplierPayment]:
+    """Haninge kommun: the `Rapportdata` extract, one file per year.
+
+    Dated by `Fakturadatum` for the same reason Bjurholm's ledger is: the
+    invoice date is what a supplier recognises as their own revenue, not
+    whichever date the voucher happened to post. `Konto beskrivning` and
+    `Verksamhet beskrivning` are kept as the account and cost centre, same
+    role as Huddinge's `Konto(T)` and `Ansvar(T)`.
+    """
+    rows = _xlsx_rows(blob, "Rapportdata")
+    columns = _header_index(
+        next(rows),
+        (
+            "Leverantör",
+            "Leverantörs organisationsnummer",
+            "Fakturadatum",
+            "Nettobelopp på konteringsrad",
+            "Konto beskrivning",
+            "Verksamhet beskrivning",
+        ),
+        "Haninge",
+    )
+    lines = []
+    for row in rows:
+        name = clean(row[columns["Leverantör"]])
+        period = parse_iso_date(row[columns["Fakturadatum"]])
+        amount = row[columns["Nettobelopp på konteringsrad"]]
+        if name is None or period is None or not isinstance(amount, int | float):
+            continue
+        orgnr = normalize_orgnr(clean(row[columns["Leverantörs organisationsnummer"]]))
+        lines.append(
+            (
+                period,
+                orgnr,
+                name,
+                int(round(amount)),
+                clean(row[columns["Konto beskrivning"]]),
+                clean(row[columns["Verksamhet beskrivning"]]),
+            )
+        )
+    return _aggregate(lines, "Haninge kommun", None, source_url)
+
+
 LEDGERS: dict[str, Ledger] = {
     lg.key: lg
     for lg in (
@@ -617,6 +854,18 @@ LEDGERS: dict[str, Ledger] = {
             "Huddinge kommun",
             "Leverantörsreskontra med konto och ansvar, ett år per fil (xlsx)",
             read_huddinge_ledger,
+        ),
+        Ledger(
+            "hassleholm",
+            "Hässleholms kommun",
+            "Verifikatdump, en fil per kvartal, 18 filer (xlsx)",
+            read_hassleholm_ledger,
+        ),
+        Ledger(
+            "haninge",
+            "Haninge kommun",
+            "Rapportdata med konto och verksamhet, ett år per fil (xlsx)",
+            read_haninge_ledger,
         ),
     )
 }
