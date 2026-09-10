@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-09-08 23:19 UTC._
+_Genererad 2026-09-10 06:32 UTC._
 
 ## Planen och kontakterna
 
@@ -21,6 +21,25 @@ _Den här delen skrivs aldrig över av generatorn. Håll den kort och ärlig._
   `a1`–`a8`, och resultaten som 29 csv-filer i `data/analysis/results/`.
   `data/tender_scan.db` känner fortfarande bara till 204 799 betalningsrader.
   **De två är inte synkade, och det är den största tekniska skulden just nu.**
+- **Haninge (#10) är inläst.** 195 139 betalrader och 736 avtal, 2023-01–2026-07.
+  Reskontran bär **verksamhet och organisation** på fakturaraden — vilken enhet
+  som köpte, i bättre skick än någon annan kommun lämnat, 247 namngivna
+  verksamheter. Avtalstrohet 63,0 %, 26,3 % av avtalsleverantörerna utan avrop.
+  Saknar rang och takvärde.
+- **Hässleholms reskontra låg inläst under fel kommunnamn** och är rättad
+  2026-09-10. De arton periodnamngivna filerna (`202301-202303` …
+  `202607-202608`) bär inget kommunnamn i sig och lästes först in som Kalmar;
+  kostnadsstället "Skansenhemmet, Vittsjö" avslöjar dem. 179 375 rader raderade
+  och omlästa. Hässleholm kopplas nu mot sin egen katalog: avtalstrohet 40,3 %.
+  Kalmar har därmed noll rader, vilket är korrekt — deras utlämnande är
+  leverantör × år utan konto.
+- **Fyra kommuner har båda halvorna inlästa** (Haninge, Huddinge, Hässleholm,
+  Bjurholm) och det är de enda som får en avtalstrohetssiffra. Borås har reskontra
+  men ingen katalogläsare, trots att deras `Avtalssammanställning 2023-2026.xlsx`
+  bär orgnr på samtliga 1 285 rader — det är det billigaste nästa steget.
+  Göteborg, Jönköping, Gävle och Grästorp har bara katalog. Se
+  `data/raw/analys/SAKNAS.md` för vad som saknas per kommun och färdig mejltext
+  för att begära det.
 - **Säljunderlaget är klart.** `data/outreach/ringlista_2026-09.md` — 27 bolag med
   verifierad telefon och e-post, ringordning, manus per segment. Underlaget är
   bolagens egna fakturarader i de fyra kommunerna.
@@ -146,11 +165,12 @@ köra det.
 ## Kod
 
 - Gren: `main`
-- Synkad med `origin/main`
-- Arbetsträd: 4 ändrade filer
+- **1 commit opushad** till `origin/main`
+- Arbetsträd: 3 ändrade filer
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `d8b13f8` | 2026-09-09 | docs: four municipalities, and the shortest path to a paid invoice |
 | `2690e69` | 2026-09-03 | style: run ruff format, fix CI |
 | `f6f38e6` | 2026-09-03 | docs(state): link the Huddinge analysis and its strongest objection |
 | `88dcad9` | 2026-09-03 | fix(m8): size an expiring contract from its own months, not the supplier's history |
@@ -158,17 +178,16 @@ köra det.
 | `d8fce29` | 2026-09-03 | feat(m8): lay the catalogue over the ledger and measure where they disagree |
 | `96ae990` | 2026-09-02 | feat(m7): read what the municipalities actually sent back |
 | `3da8faf` | 2026-09-01 | feat(m3): foia ingest --partial, so half a delivery does not retire a request |
-| `3cd8b89` | 2026-09-01 | feat(setup): bootstrap a fresh clone and say what it lacks |
 
 ## Vad som kör
 
 | Container | Status | Image |
 | --- | --- | --- |
-| `tender-scan-app-1` | Up 37 minutes | `tender-scan-app` |
-| `tender-scan-tailscale-1` | Up 37 minutes | `tailscale/tailscale:latest` |
+| `tender-scan-app-1` | Up 9 minutes | `tender-scan-app` |
+| `tender-scan-tailscale-1` | Up 9 minutes | `tailscale/tailscale:latest` |
 
 - Image `tender-scan-app` byggd: 2026-09-03 08:53:00 UTC
-- ⚠️ **Imagen är 29 min äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
+- ⚠️ **Imagen är 5 dygn äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
 - Nås bara över tailnet: **http://tender-scan:8000**. `localhost:8000` är avsiktligt stängt (`network_mode: service:tailscale`).
 
 ## Vad databasen innehåller
@@ -179,7 +198,7 @@ köra det.
 | `framework_agreements` | 137 | ramavtal med takvolym |
 | `award_winners` | 1771 | tilldelade leverantörer |
 | `framework_buyers` | 173 | avropsberättigade köpare |
-| `supplier_payments` | 204799 | fakturarader från öppna reskontror |
+| `supplier_payments` | 579313 | fakturarader från öppna reskontror |
 | `foia_requests` | 20 | utlämnandebegäranden |
 
 ## Utlämnandebegäranden
@@ -196,7 +215,7 @@ köra det.
 | 13 | Hässleholms kommun | `–` | 2026-08-31 | partial |
 | 12 | Kalmar kommun | `–` | 2026-08-31 | partial |
 | 11 | Falu kommun | `–` | 2026-08-31 | partial |
-| 10 | Haninge kommun | `–` | 2026-08-31 | sent |
+| 10 | Haninge kommun | `–` | 2026-08-31 | partial |
 | 9 | Halmstads kommun | `–` | 2026-08-31 | sent |
 | 8 | Karlstads kommun | `–` | 2026-08-31 | sent |
 | 7 | Huddinge kommun | `–` | 2026-08-31 | received |
