@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-09-12 12:00 UTC._
+_Genererad 2026-09-12 12:22 UTC._
 
 ## Planen och kontakterna
 
@@ -140,11 +140,12 @@ köra det.
 ## Kod
 
 - Gren: `claude/wizardly-cori-5b2ugv`
-- Ingen uppström satt — inget är pushat någonstans
+- Synkad med `origin/claude/wizardly-cori-5b2ugv`
 - Arbetsträd: rent
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `78f3988` | 2026-09-12 | docs(state): hand off the Gmail triage of batch 2 |
 | `2690e69` | 2026-09-03 | style: run ruff format, fix CI |
 | `f6f38e6` | 2026-09-03 | docs(state): link the Huddinge analysis and its strongest objection |
 | `88dcad9` | 2026-09-03 | fix(m8): size an expiring contract from its own months, not the supplier's history |
@@ -152,7 +153,6 @@ köra det.
 | `d8fce29` | 2026-09-03 | feat(m8): lay the catalogue over the ledger and measure where they disagree |
 | `96ae990` | 2026-09-02 | feat(m7): read what the municipalities actually sent back |
 | `3da8faf` | 2026-09-01 | feat(m3): foia ingest --partial, so half a delivery does not retire a request |
-| `3cd8b89` | 2026-09-01 | feat(setup): bootstrap a fresh clone and say what it lacks |
 
 ## Vad som kör
 
