@@ -4,7 +4,7 @@
      Redigera inte de genererade avsnitten för hand; de skrivs över.
      Allt mellan MANUELLT:START och MANUELLT:SLUT behålls som det är. -->
 
-_Genererad 2026-09-03 07:16 UTC._
+_Genererad 2026-09-12 12:00 UTC._
 
 ## Planen och kontakterna
 
@@ -58,6 +58,29 @@ vilande avtal, inte en mätning. Be om rangkolumnen i nästa begäran.
 5. **Huddinges följebrev är inte läst.** Filerna identifierades på innehållet,
    inte på ett mejl. Finns det en avgift eller ett villkor i det mejlet vet vi
    inte om det.
+6. **Halmstad** vägrar maskinläsbart format — kräver besked: på plats eller
+   papperskopior mot avgift (leverantörsreskontra 1 år ≈ 60 000 kr).
+7. **Linköping**: avgift ≈ 70 000 kr (11 500 sidor), väntar fakturauppgifter.
+8. **Luleå**: väntar avgiftsbesked (reskontra ≈ 10 000 sidor, avtalskatalog
+   ≈ 2 806 sidor, 50 kr grundavgift + 5 kr/sida).
+9. **Nacka** ber om en preciserad begäran innan de söker vidare.
+
+### Gmail-triage av utskick 2 (2026-09-10, 16 nya kommuner + 4 påminnelser)
+
+Kört i molnsession 2026-09-12. Facit:
+
+- **Nedladdat till `data/raw/`:** Skellefteå (avtalskatalog, 162 KB), Malmö
+  (avtalsdatabas, 224 KB), Luleå (ett provutdrag på en sida, inte leveransen).
+- **Kan inte laddas ned härifrån — kräver lokal session:** Dorotea (~19 MB,
+  2 filer), Växjö (~70 MB, 4 mejl: reskontra 2023–2026 + avtalsexport), Lund
+  (~86 MB, reskontra 202501–202606). Gmail MCP-verktyget här saknar en
+  bilage-hämtare; RAW-MIME-hämtning fungerar bara under ett par hundra KB och
+  kraschar anslutningen över det (bekräftat vid 12,5 och 19 MB).
+- **Malmös reskontra 2023–2026** delades via SharePoint/OneDrive, kräver
+  Oscars egen Microsoft-inloggning — otillgängligt härifrån oavsett storlek.
+- **Stockholm (handlingar.se)** har svarat, men domänen är blockerad av
+  nätverksfiltret i den här miljön. Måste läsas och hämtas lokalt.
+- Nya krav-på-svar ovan (6–9) kom ur samma genomgång.
 
 ### Nästa datajobb, i prioritetsordning
 
@@ -116,12 +139,13 @@ köra det.
 
 ## Kod
 
-- Gren: `main`
-- Synkad med `origin/main`
+- Gren: `claude/wizardly-cori-5b2ugv`
+- Ingen uppström satt — inget är pushat någonstans
 - Arbetsträd: rent
 
 | Commit | Datum | Vad |
 | --- | --- | --- |
+| `2690e69` | 2026-09-03 | style: run ruff format, fix CI |
 | `f6f38e6` | 2026-09-03 | docs(state): link the Huddinge analysis and its strongest objection |
 | `88dcad9` | 2026-09-03 | fix(m8): size an expiring contract from its own months, not the supplier's history |
 | `e2b3689` | 2026-09-03 | chore(state): refresh after M8 |
@@ -129,56 +153,18 @@ köra det.
 | `96ae990` | 2026-09-02 | feat(m7): read what the municipalities actually sent back |
 | `3da8faf` | 2026-09-01 | feat(m3): foia ingest --partial, so half a delivery does not retire a request |
 | `3cd8b89` | 2026-09-01 | feat(setup): bootstrap a fresh clone and say what it lacks |
-| `128b1e1` | 2026-09-01 | docs(state): hand off the Gmail triage of batch 1 to the next session |
 
 ## Vad som kör
 
-| Container | Status | Image |
-| --- | --- | --- |
-| `tender-scan-app-1` | Up 22 minutes | `tender-scan-app` |
-| `tender-scan-tailscale-1` | Up 2 hours | `tailscale/tailscale:latest` |
-
-- Image `tender-scan-app` byggd: 2026-09-03 08:53:00 UTC
-- ⚠️ **Imagen är 8 min äldre än senaste commit — containern kör gammal kod.** Kör `docker compose up -d --build`.
-- Nås bara över tailnet: **http://tender-scan:8000**. `localhost:8000` är avsiktligt stängt (`network_mode: service:tailscale`).
+- Inga tender-scan-containrar igång (eller ingen docker-daemon nåbar).
 
 ## Vad databasen innehåller
 
-| Tabell | Rader | Vad |
-| --- | --- | --- |
-| `notices` | 0 ⚠️ tom | notiser från TED |
-| `framework_agreements` | 137 | ramavtal med takvolym |
-| `award_winners` | 1771 | tilldelade leverantörer |
-| `framework_buyers` | 173 | avropsberättigade köpare |
-| `supplier_payments` | 204799 | fakturarader från öppna reskontror |
-| `foia_requests` | 20 | utlämnandebegäranden |
+- Ingen databas på `data/tender_scan.db`. Kör `tender-scan scan` först.
 
 ## Utlämnandebegäranden
 
-| # | Myndighet | Ramavtal | Skickat | Status |
-| --- | --- | --- | --- | --- |
-| 20 | Grästorps kommun | `–` | 2026-08-31 | partial |
-| 19 | Dorotea kommun | `–` | 2026-08-31 | sent |
-| 18 | Bjurholms kommun | `–` | 2026-08-31 | partial |
-| 17 | Aneby kommun | `–` | 2026-08-31 | sent |
-| 16 | Härnösands kommun | `–` | 2026-08-31 | sent |
-| 15 | Katrineholms kommun | `–` | 2026-08-31 | sent |
-| 14 | Enköpings kommun | `–` | 2026-08-31 | sent |
-| 13 | Hässleholms kommun | `–` | 2026-08-31 | sent |
-| 12 | Kalmar kommun | `–` | 2026-08-31 | sent |
-| 11 | Falu kommun | `–` | 2026-08-31 | sent |
-| 10 | Haninge kommun | `–` | 2026-08-31 | sent |
-| 9 | Halmstads kommun | `–` | 2026-08-31 | sent |
-| 8 | Karlstads kommun | `–` | 2026-08-31 | sent |
-| 7 | Huddinge kommun | `–` | 2026-08-31 | received |
-| 6 | Gävle kommun | `–` | 2026-08-31 | sent |
-| 5 | Eskilstuna kommun | `–` | 2026-08-31 | sent |
-| 4 | Borås stad | `–` | 2026-08-31 | partial |
-| 3 | Jönköpings kommun | `–` | 2026-08-31 | partial |
-| 2 | Helsingborgs stad | `–` | 2026-08-31 | sent |
-| 1 | Göteborgs stad | `–` | 2026-08-31 | partial |
-
-- Deadlines räknas av `tender-scan foia due` — den här filen upprepar dem inte.
+- Ingen databas ännu.
 
 ## Var siffrorna kommer ifrån
 
