@@ -7,6 +7,7 @@ COPY src/ src/
 RUN pip install --no-cache-dir .
 
 ENV TENDER_SCAN_DB=/data/tender_scan.db
+ENV TENDER_SCAN_XML_CACHE=/data/xml_cache
 VOLUME /data
 
 EXPOSE 8000

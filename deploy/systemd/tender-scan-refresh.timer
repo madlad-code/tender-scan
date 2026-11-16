@@ -1,0 +1,11 @@
+[Unit]
+Description=tender-scan: daglig TED-hämtning kl 06:00
+
+[Timer]
+OnCalendar=*-*-* 06:00:00 Europe/Stockholm
+# Datorn var avstängd kl 06? Kör så fort den är uppe igen.
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

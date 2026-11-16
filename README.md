@@ -323,6 +323,31 @@ docker compose exec app tender-scan scan --cpv "72*" --days 30
 
 Then open **http://tender-scan:8000** on your phone (Tailscale app installed and connected, MagicDNS enabled). No ports are published on the host or the internet.
 
+### Daily refresh
+
+`tender-scan refresh` is the whole TED side of the pipeline in one command:
+
+1. every Swedish notice published in the last `--days` (all CPV codes) into `notices`;
+2. every framework award notice (`can-standard`/`can-social` with a framework lot) in the last `--ramavtal-days`: its eForms XML into the cache — cached XML is never fetched twice;
+3. `frameworks extract` and `winners extract` over the whole cache.
+
+Each run is recorded in `refresh_runs` and the dashboard prints the last completed one ("TED hämtat …"), so a page the timer stopped updating says so. The web view reads the database per request; nothing restarts.
+
+A systemd user timer runs it at 06:00 Europe/Stockholm, inside the app container:
+
+```bash
+ln -sf "$PWD"/deploy/systemd/tender-scan-refresh.* ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now tender-scan-refresh.timer
+journalctl --user -u tender-scan-refresh      # what the last run did
+
+# One-off backfill: framework awards since January, notices for a month.
+# TED refuses a search window above 15 000 results, so keep --days modest.
+docker compose exec -T app tender-scan refresh --days 30 --ramavtal-days 320
+```
+
+Ledgers (`payments load`, `kommun ingest`) are not part of the daily run: they arrive by records request or are re-published on the source's own schedule, and are loaded by hand.
+
 ## Configuration
 
 Via environment variables (see `.env.example`):

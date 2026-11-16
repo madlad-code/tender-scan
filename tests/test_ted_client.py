@@ -117,3 +117,18 @@ def test_rate_limiter_sleeps_between_calls():
     now["t"] += 0.3
     limiter.wait()  # 0.7s remaining
     assert sleeps == [pytest.approx(0.7)]
+
+
+def test_build_query_without_cpv_covers_every_cpv():
+    query = build_query(None, days=3, today=date(2026, 11, 16))
+    assert query == "(place-of-performance IN (SWE)) AND (publication-date >= 20261113)"
+
+
+def test_build_query_framework_awards():
+    query = build_query(None, days=7, today=date(2026, 11, 16), framework_awards=True)
+    assert query == (
+        "(place-of-performance IN (SWE)) "
+        "AND (notice-type IN (can-standard can-social)) "
+        "AND (framework-agreement-lot IN (fa-wo-rc fa-w-rc fa-mix)) "
+        "AND (publication-date >= 20261109)"
+    )

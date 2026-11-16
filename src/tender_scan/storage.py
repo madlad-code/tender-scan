@@ -176,6 +176,19 @@ CREATE TABLE IF NOT EXISTS municipal_contracts (
     PRIMARY KEY (row_hash)
 );
 
+-- One row per `tender-scan refresh`: when TED was last read, and what came of
+-- it. The dashboard prints the newest finished row so a stale page says so.
+CREATE TABLE IF NOT EXISTS refresh_runs (
+    started_at      TEXT NOT NULL PRIMARY KEY,
+    finished_at     TEXT,
+    days            INTEGER NOT NULL,
+    framework_days  INTEGER NOT NULL,
+    notices         INTEGER,
+    framework_ids   INTEGER,
+    xml_fetched     INTEGER,
+    xml_failed      INTEGER
+);
+
 CREATE INDEX IF NOT EXISTS idx_award_winners_orgnr ON award_winners (supplier_orgnr);
 CREATE INDEX IF NOT EXISTS idx_payments_orgnr ON supplier_payments (supplier_orgnr);
 CREATE INDEX IF NOT EXISTS idx_payments_payer ON supplier_payments (payer_org);
@@ -573,6 +586,41 @@ class Storage:
                 rows,
             )
         return self._conn.total_changes - before
+
+    def start_refresh(self, days: int, framework_days: int) -> str:
+        started = _utc_now()
+        self._conn.execute(
+            "INSERT OR REPLACE INTO refresh_runs (started_at, days, framework_days)"
+            " VALUES (?, ?, ?)",
+            (started, days, framework_days),
+        )
+        self._conn.commit()
+        return started
+
+    def finish_refresh(
+        self,
+        started_at: str,
+        *,
+        notices: int,
+        framework_ids: int,
+        xml_fetched: int,
+        xml_failed: int,
+    ) -> None:
+        self._conn.execute(
+            "UPDATE refresh_runs SET finished_at = ?, notices = ?, framework_ids = ?,"
+            " xml_fetched = ?, xml_failed = ? WHERE started_at = ?",
+            (_utc_now(), notices, framework_ids, xml_fetched, xml_failed, started_at),
+        )
+        self._conn.commit()
+
+    def last_refresh(self) -> sqlite3.Row | None:
+        """The newest refresh that ran to completion, or None."""
+        cur = self._conn.execute(
+            "SELECT * FROM refresh_runs WHERE finished_at IS NOT NULL"
+            " ORDER BY finished_at DESC LIMIT 1"
+        )
+        cur.row_factory = sqlite3.Row
+        return cur.fetchone()
 
     def insert_contracts(self, contracts: Iterable[MunicipalContract]) -> int:
         """Add catalogue rows that are not already stored; returns how many were added.

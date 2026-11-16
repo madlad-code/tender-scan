@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+import httpx
 import typer
 
 from tender_scan import edge, foia, municipal, prospects, utilization
 from tender_scan import report as report_module
-from tender_scan.eforms import DEFAULT_CACHE_DIR, EformsError, notice_text, parse_graph
+from tender_scan.eforms import (
+    DEFAULT_CACHE_DIR,
+    EformsError,
+    fetch_notice_xml,
+    notice_text,
+    parse_graph,
+)
 from tender_scan.frameworks import extract_framework, named_buyers, needs_review, validate
 from tender_scan.fx import FxRates
 from tender_scan.models import Notice, format_estimated_value, parse_notice
@@ -19,7 +27,7 @@ from tender_scan.payments import LOADERS, SourceFile, http_fetch, to_payments
 from tender_scan.payments.base import WinnerIndex
 from tender_scan.records import AwardWinner, FoiaRequest, FrameworkAgreement
 from tender_scan.storage import Storage
-from tender_scan.ted_client import TedClient
+from tender_scan.ted_client import RateLimiter, TedApiError, TedClient
 from tender_scan.winners import extract_winners, summarize
 
 app = typer.Typer(help="Monitor Swedish public procurement notices from TED.", no_args_is_help=True)
@@ -27,7 +35,9 @@ app = typer.Typer(help="Monitor Swedish public procurement notices from TED.", n
 
 @app.command()
 def scan(
-    cpv: str = typer.Option(..., help="CPV code or wildcard prefix, e.g. 72000000 or 72*"),
+    cpv: str | None = typer.Option(
+        None, help="CPV code or wildcard prefix, e.g. 72000000 or 72* (default: every CPV)"
+    ),
     days: int = typer.Option(30, help="Look back this many days of publications"),
     db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
 ) -> None:
@@ -37,7 +47,7 @@ def scan(
         for raw in client.search_notices(cpv=cpv, days=days):
             storage.upsert(parse_notice(raw))
             stored += 1
-    typer.echo(f"Stored {stored} notices (CPV {cpv}, last {days} days).")
+    typer.echo(f"Stored {stored} notices (CPV {cpv or 'alla'}, last {days} days).")
 
 
 def _truncate(value: str | None, width: int) -> str:
@@ -145,6 +155,92 @@ def serve(
         server.serve_forever()
     except KeyboardInterrupt:
         server.shutdown()
+
+
+# -- refresh: the daily run -------------------------------------------------
+
+
+@app.command("refresh")
+def refresh(
+    days: int = typer.Option(3, help="Notices: look back this many days (overlap is harmless)"),
+    framework_days: int | None = typer.Option(
+        None,
+        "--ramavtal-days",
+        help="Framework award notices: look back this many days (default: same as --days)",
+    ),
+    cache: Path | None = typer.Option(
+        None, help="XML cache directory (default: $TENDER_SCAN_XML_CACHE or data/xml_cache)"
+    ),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Daglig körning: hämta nya notiser och ramavtal från TED och räkna om allt.
+
+    1. Every Swedish notice published in the window, into `notices`.
+    2. Every framework award notice in its window: its eForms XML into the
+       cache. Cached XML is never fetched twice — a published notice does not
+       change.
+    3. `frameworks extract` and `winners extract` over the whole cache, so the
+       dashboard's ceilings and winners match what the manual commands give.
+
+    The web view reads the database per request, so nothing needs restarting.
+    """
+    framework_days = framework_days if framework_days is not None else days
+    cache_dir = cache or Path(os.environ.get("TENDER_SCAN_XML_CACHE", DEFAULT_CACHE_DIR))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    with Storage(db) as storage:
+        started = storage.start_refresh(days, framework_days)
+        try:
+            with TedClient() as client:
+                stored = 0
+                for raw in client.search_notices(cpv=None, days=days):
+                    storage.upsert(parse_notice(raw))
+                    stored += 1
+                typer.echo(f"Notiser: {stored} lagrade (senaste {days} dagarna).")
+                ids = sorted(
+                    {
+                        raw["publication-number"]
+                        for raw in client.search_notices(
+                            cpv=None, days=framework_days, framework_awards=True
+                        )
+                        if raw.get("publication-number")
+                    }
+                )
+        except (TedApiError, httpx.HTTPError) as exc:
+            typer.echo(f"TED-sökningen misslyckades: {exc}", err=True)
+            raise typer.Exit(1) from exc
+
+        missing = [i for i in ids if not (cache_dir / f"{i}.xml").exists()]
+        typer.echo(
+            f"Ramavtal: {len(ids)} tilldelningar senaste {framework_days} dagarna, "
+            f"{len(missing)} nya att hämta."
+        )
+        failed: list[tuple[str, str]] = []
+        limiter = RateLimiter(1.0)
+        with httpx.Client(timeout=30.0, follow_redirects=True) as http:
+            for notice_id in missing:
+                limiter.wait()
+                try:
+                    fetch_notice_xml(notice_id, cache_dir=cache_dir, client=http)
+                except EformsError as exc:
+                    failed.append((notice_id, str(exc)))
+        for notice_id, reason in failed:
+            typer.echo(f"kunde inte hämta {notice_id}: {reason}", err=True)
+
+    frameworks_extract(cache=cache_dir, db=db, limit=None, dry_run=False)
+    winners_extract(cache=cache_dir, db=db, limit=None, dry_run=False)
+
+    # Marked finished only once the numbers are recomputed: a run that dies
+    # half-way leaves the dashboard showing the previous, complete run.
+    with Storage(db) as storage:
+        storage.finish_refresh(
+            started,
+            notices=stored,
+            framework_ids=len(ids),
+            xml_fetched=len(missing) - len(failed),
+            xml_failed=len(failed),
+        )
+    typer.echo("Klart.")
 
 
 # -- frameworks (M1: takvolymsextraktion) ------------------------------------

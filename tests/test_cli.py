@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import httpx
@@ -727,3 +728,94 @@ def test_foia_ingest_refused_and_partial_are_mutually_exclusive(tmp_path):
 
     assert result.exit_code != 0
     assert "Traceback" not in result.output
+
+
+# -- refresh: the daily run ---------------------------------------------------
+
+
+def _refresh_client(search_response, framework_ids: list[str], queries: list[str]) -> TedClient:
+    """Plain searches get the recorded notices; framework searches get `framework_ids`."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        query = json.loads(request.content)["query"]
+        queries.append(query)
+        if "framework-agreement-lot" in query:
+            notices = [{"publication-number": i} for i in framework_ids]
+            return httpx.Response(200, json={"notices": notices, "totalNoticeCount": len(notices)})
+        return httpx.Response(200, json=dict(search_response, totalNoticeCount=5))
+
+    return TedClient(
+        base_url="https://api.ted.example",
+        min_request_interval=0,
+        transport=httpx.MockTransport(handler),
+    )
+
+
+def test_refresh_stores_notices_fetches_new_xml_and_recomputes(
+    tmp_path: Path, search_response, monkeypatch
+) -> None:
+    cache = _corpus(tmp_path)
+    db = tmp_path / "t.sqlite3"
+    queries: list[str] = []
+    monkeypatch.setattr(
+        cli,
+        "TedClient",
+        lambda: _refresh_client(search_response, ["1884-2026", "99-2026", "98-2026"], queries),
+    )
+    real_limiter = cli.RateLimiter
+    monkeypatch.setattr(cli, "RateLimiter", lambda _interval: real_limiter(0))
+    fetched: list[str] = []
+
+    def fake_fetch(notice_id, cache_dir, client):
+        fetched.append(notice_id)
+        if notice_id == "98-2026":
+            raise cli.EformsError("TED returned 404")
+        source = Path(__file__).parent / "fixtures" / "eforms_15840-2026.xml"
+        (cache_dir / f"{notice_id}.xml").write_bytes(source.read_bytes())
+        return b""
+
+    monkeypatch.setattr(cli, "fetch_notice_xml", fake_fetch)
+
+    result = runner.invoke(
+        app,
+        ["refresh", "--days", "3", "--ramavtal-days", "30", "--cache", str(cache), "--db", str(db)],
+    )
+
+    assert result.exit_code == 0, result.output
+    # Every CPV: the daily run has no CPV clause at all.
+    assert all("classification-cpv" not in q for q in queries)
+    # Cached XML is never fetched again; only the two unknown ids are.
+    assert sorted(fetched) == ["98-2026", "99-2026"]
+    assert "kunde inte hämta 98-2026" in result.output
+    with Storage(db) as storage:
+        assert storage.count() == 5
+        assert "99-2026" in {row.notice_id for row in storage.list_frameworks()}
+        last = storage.last_refresh()
+    assert last["notices"] == 5
+    assert last["framework_ids"] == 3
+    assert last["xml_fetched"] == 1
+    assert last["xml_failed"] == 1
+
+
+def test_refresh_ted_failure_exits_nonzero_and_leaves_no_finished_run(
+    tmp_path: Path, monkeypatch
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, text="down")
+
+    monkeypatch.setattr(
+        cli,
+        "TedClient",
+        lambda: TedClient(
+            base_url="https://api.ted.example",
+            min_request_interval=0,
+            transport=httpx.MockTransport(handler),
+        ),
+    )
+    db = tmp_path / "t.sqlite3"
+    result = runner.invoke(app, ["refresh", "--cache", str(tmp_path / "xml"), "--db", str(db)])
+
+    assert result.exit_code == 1
+    assert "TED-sökningen misslyckades" in result.output
+    with Storage(db) as storage:
+        assert storage.last_refresh() is None

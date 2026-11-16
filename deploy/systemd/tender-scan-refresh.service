@@ -1,0 +1,21 @@
+# Daglig TED-hämtning. Körs i app-containern, som delar nätverk med
+# Tailscale-sidovagnen, så resultatet syns direkt på http://tender-scan:8000.
+#
+# Installera (user-unit, kräver `loginctl enable-linger $USER`):
+#   ln -sf "$PWD"/deploy/systemd/tender-scan-refresh.* ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now tender-scan-refresh.timer
+#
+# Logg: journalctl --user -u tender-scan-refresh
+
+[Unit]
+Description=tender-scan: hämta nya notiser och ramavtal från TED
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/projects/money2/tender-scan
+# 3 dagars överlapp: en missad morgon (helg, avstängd dator) fylls på nästa
+# körning. Cachad XML hämtas aldrig igen, så överlappet kostar bara sökningar.
+ExecStart=/usr/bin/docker compose exec -T app tender-scan refresh --days 3
+TimeoutStartSec=2h

@@ -182,3 +182,13 @@ def test_server_serves_every_page(tmp_path, search_response):
     finally:
         server.shutdown()
         thread.join(timeout=5)
+
+
+def test_dashboard_says_when_ted_was_last_read(tmp_path):
+    with Storage(tmp_path / "t.db") as storage:
+        assert "TED aldrig hämtat" in route(storage, "/")
+        started = storage.start_refresh(3, 3)
+        # A run that has started but not finished is not "updated" yet.
+        assert "TED aldrig hämtat" in route(storage, "/")
+        storage.finish_refresh(started, notices=1, framework_ids=0, xml_fetched=0, xml_failed=0)
+        assert "TED hämtat 20" in route(storage, "/")

@@ -190,7 +190,17 @@ _DASH_NOTE = (
 )
 
 
-def render_dashboard(rows: list[utilization.Utilization]) -> str:
+def _refreshed(last: sqlite3.Row | None) -> str:
+    """When TED was last read, so a page the timer stopped updating says so."""
+    if last is None:
+        return "TED aldrig hämtat — kör tender-scan refresh"
+    when = str(last["finished_at"]).replace("T", " ").removesuffix("Z")[:16]
+    return f"TED hämtat {when} UTC"
+
+
+def render_dashboard(
+    rows: list[utilization.Utilization], last_refresh: sqlite3.Row | None = None
+) -> str:
     """Every framework, largest observed spend first."""
     ordered = sorted(
         rows,
@@ -215,7 +225,7 @@ def render_dashboard(rows: list[utilization.Utilization]) -> str:
         return _page(
             title="tender-scan",
             heading="Utnyttjandegrad",
-            meta="0 ramavtal",
+            meta=f"0 ramavtal · {_refreshed(last_refresh)}",
             body=body,
             current="/",
         )
@@ -236,7 +246,10 @@ def render_dashboard(rows: list[utilization.Utilization]) -> str:
     return _page(
         title="tender-scan — utnyttjandegrad",
         heading="Utnyttjandegrad",
-        meta=f"{len(ordered)} ramavtal, {len(measurable)} med både takvolym och observerad spend",
+        meta=(
+            f"{len(ordered)} ramavtal, {len(measurable)} med både takvolym och observerad"
+            f" spend · {_refreshed(last_refresh)}"
+        ),
         body=body,
         current="/",
     )
@@ -470,7 +483,7 @@ def route(storage: Storage, path: str) -> str | None:
     """Map a request path to a rendered page, or None for 404."""
     conn = storage.connection()
     if path in ("/", "/index.html"):
-        return render_dashboard(utilization.load_all(conn))
+        return render_dashboard(utilization.load_all(conn), storage.last_refresh())
     if path == "/kommuner":
         return render_kommuner(municipal.load_kommuner(conn))
     if path.startswith("/kommun/"):

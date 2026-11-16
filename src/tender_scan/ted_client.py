@@ -60,17 +60,36 @@ class RateLimiter:
         self._last = self._clock()
 
 
-def build_query(cpv: str, days: int, country: str = "SWE", today: date | None = None) -> str:
+# A contract award notice for a framework: the only notices that carry a
+# ceiling and the suppliers awarded a place under it. Both lists are TED's
+# own codes, verified against the live search API.
+FRAMEWORK_AWARD_NOTICE_TYPES = ("can-standard", "can-social")
+FRAMEWORK_TYPES = ("fa-wo-rc", "fa-w-rc", "fa-mix")
+
+
+def build_query(
+    cpv: str | None,
+    days: int,
+    country: str = "SWE",
+    today: date | None = None,
+    *,
+    framework_awards: bool = False,
+) -> str:
     """Build a TED expert-search query for country + CPV + publication window.
 
-    ``cpv`` may be an exact code ("72000000") or a wildcard prefix ("72*").
+    ``cpv`` may be an exact code ("72000000"), a wildcard prefix ("72*"), or
+    None for every CPV. ``framework_awards`` narrows the search to contract
+    award notices for framework agreements.
     """
     since = (today or date.today()) - timedelta(days=days)
-    return (
-        f"(place-of-performance IN ({country})) "
-        f"AND (classification-cpv IN ({cpv})) "
-        f"AND (publication-date >= {since:%Y%m%d})"
-    )
+    parts = [f"(place-of-performance IN ({country}))"]
+    if cpv:
+        parts.append(f"(classification-cpv IN ({cpv}))")
+    if framework_awards:
+        parts.append(f"(notice-type IN ({' '.join(FRAMEWORK_AWARD_NOTICE_TYPES)}))")
+        parts.append(f"(framework-agreement-lot IN ({' '.join(FRAMEWORK_TYPES)}))")
+    parts.append(f"(publication-date >= {since:%Y%m%d})")
+    return " AND ".join(parts)
 
 
 class TedClient:
@@ -101,10 +120,19 @@ class TedClient:
         self.close()
 
     def search_notices(
-        self, cpv: str, days: int = 30, country: str = "SWE"
+        self,
+        cpv: str | None,
+        days: int = 30,
+        country: str = "SWE",
+        *,
+        framework_awards: bool = False,
     ) -> Iterator[dict[str, Any]]:
-        """Yield raw notices matching country + CPV published in the last ``days`` days."""
-        query = build_query(cpv, days, country)
+        """Yield raw notices matching country + CPV published in the last ``days`` days.
+
+        TED refuses a search window wider than 15 000 results; a query that
+        large fails with TedApiError rather than returning a silent subset.
+        """
+        query = build_query(cpv, days, country, framework_awards=framework_awards)
         page = 1
         while True:
             data = self._search_page(query, page)
