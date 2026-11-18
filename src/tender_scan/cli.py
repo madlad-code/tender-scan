@@ -12,6 +12,7 @@ import typer
 
 from tender_scan import edge, foia, municipal, prospects, utilization
 from tender_scan import report as report_module
+from tender_scan import snapshot as snapshot_module
 from tender_scan.eforms import (
     DEFAULT_CACHE_DIR,
     EformsError,
@@ -241,6 +242,27 @@ def refresh(
             xml_failed=len(failed),
         )
     typer.echo("Klart.")
+
+
+@app.command("snapshot")
+def snapshot(
+    out: Path = typer.Option(
+        Path("snapshots"), help="Directory for ted-daglig.md and historik.csv"
+    ),
+    date_: str | None = typer.Option(None, "--date", help="Date to stamp (default: today, UTC)"),
+    db: str | None = typer.Option(None, help="SQLite database path (default: $TENDER_SCAN_DB)"),
+) -> None:
+    """Skriv dagens TED-siffror till snapshots/ (bara publik TED-data)."""
+    stamp = date_ or datetime.now(UTC).date().isoformat()
+    with Storage(db) as storage:
+        snap = snapshot_module.write(storage.connection(), out, stamp)
+    if snap is None:
+        typer.echo("Ingen färdig refresh i databasen; kör tender-scan refresh först.", err=True)
+        raise typer.Exit(1)
+    typer.echo(
+        f"{out}/ted-daglig.md: {snap.frameworks} ramavtal, "
+        f"{snap.new_framework_xml} nya, hämtat {snap.refreshed_at}."
+    )
 
 
 # -- frameworks (M1: takvolymsextraktion) ------------------------------------

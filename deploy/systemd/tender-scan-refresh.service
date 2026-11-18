@@ -9,13 +9,14 @@
 # Logg: journalctl --user -u tender-scan-refresh
 
 [Unit]
-Description=tender-scan: hämta nya notiser och ramavtal från TED
+Description=tender-scan: hämta från TED och pusha dagens snapshot
 After=network-online.target
 
 [Service]
 Type=oneshot
 WorkingDirectory=%h/projects/money2/tender-scan
+# refresh --days 3, sedan snapshot och push av snapshots/ till GitHub main.
 # 3 dagars överlapp: en missad morgon (helg, avstängd dator) fylls på nästa
 # körning. Cachad XML hämtas aldrig igen, så överlappet kostar bara sökningar.
-ExecStart=/usr/bin/docker compose exec -T app tender-scan refresh --days 3
+ExecStart=%h/projects/money2/tender-scan/deploy/pi/morgon.sh
 TimeoutStartSec=2h

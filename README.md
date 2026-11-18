@@ -333,7 +333,7 @@ Then open **http://tender-scan:8000** on your phone (Tailscale app installed and
 
 Each run is recorded in `refresh_runs` and the dashboard prints the last completed one ("TED hämtat …"), so a page the timer stopped updating says so. The web view reads the database per request; nothing restarts.
 
-A systemd user timer runs it at 06:00 Europe/Stockholm, inside the app container:
+A systemd user timer runs `deploy/pi/morgon.sh` at 06:00 Europe/Stockholm. It runs `refresh` inside the app container, then `tender-scan snapshot`, which writes `snapshots/ted-daglig.md` (today's figures) and `snapshots/historik.csv` (one row per day). The script commits `snapshots/` and pushes it to `main` when the figures changed. The snapshot holds public TED figures only: no ledgers, FOIA requests or prospects. It runs on the Raspberry Pi (`raspberrypi` on the tailnet), which pushes with a write deploy key for this repository.
 
 ```bash
 ln -sf "$PWD"/deploy/systemd/tender-scan-refresh.* ~/.config/systemd/user/
